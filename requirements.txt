@@ -1,0 +1,4 @@
+from_root
+python-dotenv
+langchain_groq
+langchain_openai
