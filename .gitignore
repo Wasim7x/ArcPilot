@@ -2,3 +2,6 @@ crendential.txt
 .env
 venv/
 __pycache__/
+logs/
+test_main.py
+logs/
