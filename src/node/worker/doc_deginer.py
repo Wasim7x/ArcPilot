@@ -93,3 +93,78 @@ class DesignNode:
             raise exception.MyException(error_message=str(e), error_detail=exception.sys)            
 
         return response.content   
+
+    def generate_technical_design(self, project_name, requirements, user_stories, design_feedback):
+            """
+                Helper method to generate technical design document in Markdown format
+            """
+            print("----- Creating Technical Design Document ----")
+            prompt = f"""
+                Create a comprehensive technical design document for {project_name} in Markdown format.
+                
+                The document should use proper Markdown syntax with headers (# for main titles, ## for sections, etc.), 
+                bullet points, tables, code blocks, and diagrams described in text form where appropriate.
+                
+                Requirements:
+                {self._format_list(requirements)}
+                
+                User Stories:
+                {self._format_user_stories(user_stories)}
+
+                {f"When creating this technical design document, please incorporate the following feedback about the requirements: {design_feedback}" if design_feedback else ""}
+                
+                The technical design document should include the following sections, each with proper Markdown formatting:
+                
+                # Technical Design Document: {project_name}
+
+                 ## 1. System Architecture
+                ## 2. Technology Stack and Justification
+                ## 3. Database Schema
+                ## 4. API Specifications
+                ## 5. Security Considerations
+                ## 6. Performance Considerations
+                ## 7. Scalability Approach
+                ## 8. Deployment Strategy
+                ## 9. Third-party Integrations
+                ## 10. Development, Testing, and Deployment Environments
+                
+                For any code examples, use ```language-name to specify the programming language.
+                For database schemas, represent tables and relationships using Markdown tables.
+                Make sure to maintain proper Markdown formatting throughout the document.
+            """
+            try:
+                response = self.llm.invoke(prompt)
+            except Exception as e:
+                logger.error(f"Error generating technical design document: {str(e)}")
+                raise exception.MyException(error_message=str(e), error_detail=exception.sys)
+                            
+            return response.content
+    
+    def _format_list(self, items):
+        """Format list items nicely for prompt"""
+        return '\n'.join([f"- {item}" for item in items])
+    
+
+    def _format_user_stories(self, stories):
+        """Format user stories nicely for prompt"""
+        formatted_stories = []
+        for story in stories:
+            if hasattr(story, 'id') and hasattr(story, 'title') and hasattr(story, 'description'):
+                # Handle class instance
+                formatted_stories.append(f"- ID: {story.id}\n  Title: {story.title}\n  Description: {story.description}")
+            elif isinstance(story, dict):
+                # Handle dictionary
+                formatted_stories.append(f"- ID: {story.get('id', 'N/A')}\n  Title: {story.get('title', 'N/A')}\n  Description: {story.get('description', 'N/A')}")
+        return '\n'.join(formatted_stories)
+    
+    def design_review_router(self, state: SDLCState):
+        """
+            Evaluates design review is required or not.
+        """
+        return state['design_documents']['review_status']
+
+    def design_review(self, state: SDLCState):
+        """
+            Performs the Design review
+        """
+        pass
