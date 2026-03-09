@@ -16,3 +16,60 @@ class SDLCNode:
         state['next_required_input'] = "requirements"
         state['current_node'] = 'project_initilization'
         return state
+    
+    async def generate_user_story(self, project_name: str, requirement: str, feedback_reason: str, index: int) -> UserStories:
+        prompt = f"""
+        You are an expert in software development and requirements analysis. Based on the project name "{project_name}" and the following requirement:
+        - {requirement}
+
+        Please generate a user story in Markdown format. The user story should include:
+        - A unique identifier: {index}
+        - A title
+        - A detailed description
+        - The current status (e.g., "To Do")
+
+        {f"When creating this user story, please incorporate the following feedback about the requirements: {feedback_reason}" if feedback_reason else ""}
+
+        Format the user story as a bullet point.
+        """
+        system_message = prompt.format(project_name= project_name, requirement= requirement, index= index)
+        llm_with_structured = self.llm.with_structured_output(UserStories)
+        response = llm_with_structured.invoke(system_message)
+        return response
+    
+    async def auto_generate_user_stories(self, state: SDLCState):
+        """
+            Auto generate the user stories based on the user requirements provided
+        """
+        print("----- Generate User Stories ----")
+        project_name = state["project_name"]
+        requirements = state["requirements"]
+        if 'feedback_reason' in state:
+            feedback_reason = state["feedback_reason"]
+            #next_required_input = 'product_owner_review'
+        else:
+            feedback_reason = ''
+            next_required_input = 'product_owner_review'
+
+        tasks = [
+            self.generate_user_story(project_name, requirement, feedback_reason, index)
+            for index, requirement in enumerate(requirements, start=1)
+        ]
+
+        user_stories = await asyncio.gather(*tasks)
+        return {"user_stories": user_stories, 'next_required_input': 'product_owner_review', 'current_node': 'auto_generate_user_stories'}
+    
+    def product_owner_review_decision(self, state: SDLCState):
+        """
+            Reviews the product requirements and returns the decision in state
+        """
+        product_owner_decision = state['product_decision']
+        return state
+    
+  
+    def product_decision_router(self, state: SDLCState):
+        """
+            Router function for product review decision
+        """
+        state['current_node'] = 'product_owner_decision'
+        return state["product_decision"]
