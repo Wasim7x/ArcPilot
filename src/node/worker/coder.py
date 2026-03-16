@@ -2,7 +2,7 @@ import sys
 from src import logger
 from src import exception
 from src.state.sdlc_state import SDLCState
-class CodeGenerator:
+class Code:
     def __init__(self, llm):
         self.llm = llm  
 
@@ -51,3 +51,41 @@ class CodeGenerator:
                     'current_node': 'generate_code',
                     'code_review_comments': code_review_comments
                 }
+    
+    def get_code_review_comments(self, code: str):
+        """
+        Generate code review comments for the provided code
+        """
+        print("----- Generating code review comments ----")
+        
+        # Create a prompt for the LLM to review the code
+        prompt = f"""
+            You are a coding expert. Please review the following code and provide detailed feedback:
+            ```
+            {code}
+            ```
+            Focus on:
+            1. Code quality and best practices
+            2. Potential bugs or edge cases
+            3. Performance considerations
+            4. Security concerns
+            
+            End your review with an explicit APPROVED or NEEDS_FEEDBACK status.
+        """
+        
+        # Get the review from the LLM
+        response = self.llm.invoke(prompt)
+        review_comments = response.content
+        return review_comments
+    
+    def code_review(self, state: SDLCState):
+        """
+            Performs the Design review
+        """
+        pass
+
+    def code_review_router(self, state: SDLCState):
+        """
+            Evaluates design review is required or not.
+        """
+        return state['code_review_status']
