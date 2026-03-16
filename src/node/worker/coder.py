@@ -2,7 +2,7 @@ import sys
 from src import logger
 from src import exception
 from src.state.sdlc_state import SDLCState
-class Code:
+class CodeNode:
     def __init__(self, llm):
         self.llm = llm  
 
