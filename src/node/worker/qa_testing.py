@@ -39,7 +39,12 @@ class qa_testing:
             Feedback: [Detailed feedback if failed]
         """
 
-        response = self.llm.invoke(prompt)
+        try:
+            response = self.llm.invoke(prompt)
+        except Exception as e:
+            logger.error(f"Error generating functional qa testing document: {str(e)}")
+            raise exception.MyException(error_message=str(e), error_detail=exception.sys)            
+
         qa_testing_comments = response.content
 
         return {
