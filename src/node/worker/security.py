@@ -35,3 +35,14 @@ class security:
             "security_review_comments": security_review_comments
         }
     
+    def security_review(self, state: SDLCState):
+        """
+            Performs the security review
+        """
+        pass
+
+    def security_review_router(self, state: SDLCState):
+        """
+            Evaluates design review is required or not.
+        """
+        return state['security_review_status']
