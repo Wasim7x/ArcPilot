@@ -4,3 +4,4 @@ langchain_groq
 langchain_openai
 langchain-google-genai
 langgraph
+langchain
