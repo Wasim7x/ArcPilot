@@ -4,7 +4,7 @@ from src.state.sdlc_state import SDLCState, UserStories
 
 class SDLCNode:
     def __init__(self, llm):
-        llm.self = llm
+        self.llm = llm
 
     def project_initilization(self, state: SDLCState):
         """
@@ -17,6 +17,12 @@ class SDLCNode:
         state['current_node'] = 'project_initilization'
         return state
     
+    def get_requirements(self, state: SDLCState):
+        """
+            Gets the requirements from the user
+        """
+        pass
+
     async def generate_user_story(self, project_name: str, requirement: str, feedback_reason: str, index: int) -> UserStories:
         prompt = f"""
         You are an expert in software development and requirements analysis. Based on the project name "{project_name}" and the following requirement:

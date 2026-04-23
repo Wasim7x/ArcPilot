@@ -2,7 +2,7 @@ from src import logger
 from src import exception
 from src.state.sdlc_state import SDLCState
 
-class security:
+class SecurityNode:
     def __init__(self, llm):
         self.llm = llm
 
