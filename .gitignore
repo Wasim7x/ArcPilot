@@ -5,3 +5,4 @@ __pycache__/
 logs/
 test_main.py
 logs/
+test.py

@@ -5,3 +5,6 @@ langchain_openai
 langchain-google-genai
 langgraph
 langchain
+redis
+fastapi
+uvicorn
