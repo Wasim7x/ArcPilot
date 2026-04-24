@@ -6,3 +6,6 @@ logs/
 test_main.py
 logs/
 test.py
+test_endpoints.py
+test_workflow.py
+backend.py

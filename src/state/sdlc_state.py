@@ -6,15 +6,15 @@ class UserStories(BaseModel):
     id: int = Field(..., description="The unique identifier of the user story")
     title: str = Field(..., description="The title of the user story")
     description: str = Field(..., description="A detailed explanation of the user story")
-    status: str = Field(..., description="The current status of the user story", examples="To Do")
+    status: str = Field(..., description="The current status of the user story", examples=["To Do"])
 
 class StartWorkflowRequest(BaseModel):
     project_name: str
-    initial_context: Optional[Dict[str, Any]]
+    initial_context: Optional[Dict[str, Any]] = None
 
 class StartWorkflowResponse(BaseModel):
     task_id: str
-    status: str
+    status: str  = Field( ..., examples=["approved"] )  
     next_required_input: Optional[str]
     progress: int
     current_node: str

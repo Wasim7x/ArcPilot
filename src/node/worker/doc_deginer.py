@@ -14,7 +14,7 @@ class DesignNode:
         """
         Generates the Design document functional and technical
         """
-        logger.info("Creating design document based on the requirements and user stories.")
+        # logger.info("Creating design document based on the requirements and user stories.")
         requirements = state.get('requirements', '')
         user_stories = state.get('user_stories', '')
         project_name = state.get('project_name', '')
@@ -53,7 +53,7 @@ class DesignNode:
         """
         Helper node to generate functional design document
         """
-        logger.info("Creating Functional Design Document")
+        # logger.info("Creating Functional Design Document")
         prompt = f"""
             Create a comprehensive functional design document for {project_name} in Markdown format.
     

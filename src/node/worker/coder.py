@@ -1,5 +1,5 @@
 import sys
-from src import logger
+from src.logger import logger
 from src import exception
 from src.state.sdlc_state import SDLCState
 class CodeNode:
@@ -56,7 +56,7 @@ class CodeNode:
         """
         Generate code review comments for the provided code
         """
-        print("----- Generating code review comments ----")
+        logger.info("----- Generating code review comments ----")
         
         # Create a prompt for the LLM to review the code
         prompt = f"""
