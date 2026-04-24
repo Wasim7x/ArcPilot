@@ -1,4 +1,4 @@
-from src import logger
+from src.logger import logger
 from src import exception   
 from src.state.sdlc_state import SDLCState
 
