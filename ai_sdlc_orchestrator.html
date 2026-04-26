@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI SDLC Orchestrator</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0d0f18;--bg2:#13161f;--bg3:#1a1e2e;--bg4:#20253a;
+  --ink:#e8eaf2;--ink2:#9ba3c0;--ink3:#5c6480;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --accent:#6c7ef8;--accent2:#8c9bff;
+  --green:#00d4aa;--red:#ff5e7a;--yellow:#f5c842;--orange:#ff8b5e;
+  --font:'DM Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--ink);font-size:14px;overflow:hidden;}
+
+.app{display:grid;grid-template-columns:256px 1fr 288px;grid-template-rows:52px 1fr;height:100vh;}
+
+/* Topbar */
+.topbar{grid-column:1/-1;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 18px;z-index:20;}
+.logo{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent2);letter-spacing:3px;text-transform:uppercase;}
+.logo span{color:var(--ink3);}
+.vdiv{width:1px;height:18px;background:var(--border2);}
+.top-status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink3);}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--ink3);flex-shrink:0;}
+.sdot.ok{background:var(--green);box-shadow:0 0 7px var(--green);}
+.tid-bar{margin-left:auto;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;color:var(--ink3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 10px;}
+.tid-bar span{color:var(--accent2);}
+.tid-bar button{background:none;border:none;color:var(--ink3);cursor:pointer;font-size:10px;font-family:var(--font);}
+.tid-bar button:hover{color:var(--accent2);}
+
+/* Left Sidebar */
+.sb-left{background:var(--bg2);border-right:1px solid var(--border);padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;}
+.sb-title{font-size:9px;font-weight:700;color:var(--ink3);letter-spacing:2.5px;text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.fld{display:flex;flex-direction:column;gap:3px;}
+.fld label{font-size:11px;color:var(--ink2);font-weight:500;}
+.fld select,.fld input{background:var(--bg3);border:1px solid var(--border);color:var(--ink);border-radius:7px;padding:7px 10px;font-family:var(--font);font-size:12px;outline:none;transition:border-color .18s;}
+.fld select:focus,.fld input:focus{border-color:var(--accent);}
+.fld input[type=password]{font-family:var(--mono);letter-spacing:3px;}
+.btn{width:100%;padding:9px;border:none;border-radius:8px;font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s,transform .1s;}
+.btn:hover{opacity:.85;}.btn:active{transform:scale(.98);}.btn:disabled{opacity:.35;cursor:not-allowed;}
+.btn-accent{background:var(--accent);color:#fff;}
+.btn-green{background:var(--green);color:#0a1208;}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:20px;font-size:10px;font-weight:600;background:var(--bg3);color:var(--ink3);border:1px solid var(--border);}
+.pill.ok{background:rgba(0,212,170,.1);color:var(--green);border-color:rgba(0,212,170,.3);}
+.pill .dot{width:5px;height:5px;border-radius:50%;background:currentColor;}
+.dl-list{display:flex;flex-direction:column;gap:5px;}
+.dl-item{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;}
+.dl-item-name{font-size:11px;color:var(--ink2);font-weight:500;margin-bottom:5px;}
+.dl-btns{display:flex;gap:3px;}
+.dl-btn{flex:1;padding:4px 0;border-radius:5px;border:1px solid var(--border);background:var(--bg4);color:var(--ink3);font-size:10px;font-weight:600;cursor:pointer;font-family:var(--mono);transition:all .14s;}
+.dl-btn:hover{border-color:var(--accent);color:var(--accent);}
+.dl-empty{font-size:11px;color:var(--ink3);text-align:center;padding:10px 0;}
+
+/* Main */
+.main{overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:14px;background:var(--bg);}
+.step-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.step-head{padding:11px 15px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.step-num{width:22px;height:22px;border-radius:50%;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700;color:var(--ink3);flex-shrink:0;}
+.step-num.active{background:var(--accent);color:#fff;}
+.step-num.done{background:var(--green);color:#0a1208;}
+.step-title{font-size:12px;font-weight:600;color:var(--ink);}
+.step-body{padding:13px 15px;display:flex;flex-direction:column;gap:9px;}
+.input-row{display:flex;gap:8px;align-items:flex-end;}
+.input-row .fld{flex:1;}
+.input-row .fld input{width:100%;}
+.ibtn{width:auto;padding:9px 20px;}
+textarea.ta{background:var(--bg3);border:1px solid var(--border);color:var(--ink);border-radius:7px;padding:10px 12px;font-family:var(--font);font-size:13px;width:100%;resize:vertical;min-height:88px;outline:none;line-height:1.7;transition:border-color .18s;}
+textarea.ta:focus{border-color:var(--accent);}
+
+/* ══ REVIEW PANEL ══ */
+.review-panel{background:var(--bg2);border:2px solid rgba(108,126,248,.35);border-radius:14px;overflow:hidden;display:none;margin-bottom:4px;}
+.review-panel.visible{display:block;animation:slideIn .3s ease;}
+
+.rp-head{padding:14px 18px;background:linear-gradient(135deg,rgba(108,126,248,.18),rgba(0,212,170,.09));border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:12px;}
+.rp-icon{width:36px;height:36px;border-radius:10px;background:rgba(108,126,248,.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.rp-title{font-size:15px;font-weight:700;color:var(--ink);}
+.rp-sub{font-size:11px;color:var(--ink3);margin-top:2px;}
+
+/* Stage tabs in review panel */
+.rp-stages{display:flex;gap:5px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg3);}
+.rp-stage-tab{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--bg4);font-size:11px;font-weight:500;cursor:pointer;color:var(--ink2);transition:all .15s;white-space:nowrap;}
+.rp-stage-tab:hover{border-color:var(--accent);color:var(--accent);}
+.rp-stage-tab.active{background:rgba(108,126,248,.18);border-color:var(--accent);color:var(--accent2);font-weight:700;}
+.rp-stage-tab.done{background:rgba(0,212,170,.12);border-color:rgba(0,212,170,.4);color:var(--green);}
+.tab-num{width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:9px;font-family:var(--mono);font-weight:700;flex-shrink:0;}
+.rp-stage-tab.done .tab-num{background:var(--green);color:#0a1208;}
+.rp-stage-tab.active .tab-num{background:var(--accent);color:#fff;}
+
+/* Active review stage body */
+.rp-body{padding:18px 18px 16px;}
+
+.rp-awaiting{display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:10px 14px;background:rgba(108,126,248,.07);border:1px solid rgba(108,126,248,.2);border-radius:9px;}
+.rp-awaiting-icon{font-size:18px;}
+.rp-awaiting-text{font-size:13px;font-weight:600;color:var(--accent2);}
+.rp-awaiting-sub{font-size:11px;color:var(--ink3);margin-top:2px;}
+.rp-awaiting.done-state{background:rgba(0,212,170,.07);border-color:rgba(0,212,170,.25);}
+.rp-awaiting.done-state .rp-awaiting-text{color:var(--green);}
+
+/* Big 3 decision buttons */
+.decision-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
+.dec-btn{padding:14px 8px;border-radius:11px;border:2px solid transparent;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all .18s;background:var(--bg3);}
+.dec-btn:disabled{opacity:.35;cursor:not-allowed;}
+.dec-icon{font-size:24px;line-height:1;}
+.dec-label{font-size:11px;font-weight:700;letter-spacing:.3px;}
+.dec-sub{font-size:10px;font-weight:400;opacity:.7;}
+
+.dec-btn-approve{border-color:rgba(0,212,170,.2);color:var(--green);}
+.dec-btn-approve:not(:disabled):hover{background:rgba(0,212,170,.12);border-color:rgba(0,212,170,.5);}
+.dec-btn-approve.selected{background:rgba(0,212,170,.2);border-color:var(--green);box-shadow:0 0 20px rgba(0,212,170,.25);}
+
+.dec-btn-revision{border-color:rgba(245,200,66,.2);color:var(--yellow);}
+.dec-btn-revision:not(:disabled):hover{background:rgba(245,200,66,.1);border-color:rgba(245,200,66,.5);}
+.dec-btn-revision.selected{background:rgba(245,200,66,.18);border-color:var(--yellow);box-shadow:0 0 20px rgba(245,200,66,.2);}
+
+.dec-btn-reject{border-color:rgba(255,94,122,.2);color:var(--red);}
+.dec-btn-reject:not(:disabled):hover{background:rgba(255,94,122,.1);border-color:rgba(255,94,122,.5);}
+.dec-btn-reject.selected{background:rgba(255,94,122,.18);border-color:var(--red);box-shadow:0 0 20px rgba(255,94,122,.2);}
+
+/* Feedback section */
+.fb-section{margin-bottom:14px;}
+.fb-label{font-size:11px;font-weight:600;color:var(--ink2);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.fb-label span{color:var(--ink3);font-weight:400;}
+.fb-area{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--ink);border-radius:8px;padding:10px 12px;font-family:var(--font);font-size:12px;resize:none;height:70px;outline:none;line-height:1.65;transition:border-color .18s;}
+.fb-area:focus{border-color:var(--accent);}
+.fb-area:disabled{opacity:.4;cursor:not-allowed;}
+
+/* Submit button */
+.rp-footer{display:flex;align-items:center;gap:10px;}
+.btn-submit-rev{flex:1;padding:13px;border:none;border-radius:10px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;transition:all .18s;background:linear-gradient(135deg,var(--accent),#8c5cf8);color:#fff;letter-spacing:.3px;}
+.btn-submit-rev:hover:not(:disabled){opacity:.88;transform:translateY(-1px);}
+.btn-submit-rev:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+.stage-done-pill{display:none;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--green);background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.3);border-radius:8px;padding:10px 14px;white-space:nowrap;}
+.stage-done-pill.show{display:flex;}
+
+/* Output cards */
+#out-area{display:flex;flex-direction:column;gap:12px;}
+.out-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;animation:slideIn .28s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateY(7px);}to{opacity:1;transform:translateY(0);}}
+.out-card-head{padding:9px 13px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.stage-badge{font-family:var(--mono);font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;background:rgba(108,126,248,.12);color:var(--accent);border:1px solid rgba(108,126,248,.25);}
+.out-ts{font-size:10px;color:var(--ink3);font-family:var(--mono);}
+.out-dl-group{margin-left:auto;display:flex;gap:4px;}
+.out-dl-btn{padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg4);color:var(--ink3);font-size:10px;font-weight:600;cursor:pointer;font-family:var(--mono);transition:all .14s;}
+.out-dl-btn:hover{border-color:var(--accent);color:var(--accent);}
+.out-card-body{padding:15px 17px;max-height:380px;overflow-y:auto;}
+
+/* Doc rendering */
+.doc-h1{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--accent);display:flex;align-items:center;gap:8px;}
+.doc-h1::before{content:"";width:4px;height:17px;background:var(--accent);border-radius:2px;flex-shrink:0;}
+.doc-h2{font-size:10px;font-weight:700;color:var(--accent2);margin:14px 0 6px;text-transform:uppercase;letter-spacing:1.5px;font-family:var(--mono);}
+.doc-h3{font-size:12px;font-weight:600;color:var(--ink2);margin:10px 0 5px;}
+.doc-p{font-size:12px;color:var(--ink2);line-height:1.75;margin-bottom:5px;}
+.doc-ul{padding-left:0;list-style:none;display:flex;flex-direction:column;gap:4px;margin-bottom:8px;}
+.doc-ul li{font-size:12px;color:var(--ink2);line-height:1.65;padding-left:16px;position:relative;}
+.doc-ul li::before{content:"▸";position:absolute;left:0;color:var(--accent);font-size:10px;top:2px;}
+.doc-kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin-bottom:8px;}
+.doc-kv-k{font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.8px;white-space:nowrap;padding-top:2px;}
+.doc-kv-v{font-size:12px;color:var(--ink2);line-height:1.6;}
+.doc-code{font-family:var(--mono);font-size:11px;color:var(--ink2);white-space:pre-wrap;word-break:break-word;background:var(--bg3);padding:10px 12px;border-radius:7px;max-height:160px;overflow-y:auto;border:1px solid var(--border);margin-bottom:8px;line-height:1.6;}
+.doc-status{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;font-family:var(--mono);}
+.doc-status.approved{background:rgba(0,212,170,.1);color:var(--green);border:1px solid rgba(0,212,170,.3);}
+.doc-status.rejected{background:rgba(255,94,122,.1);color:var(--red);border:1px solid rgba(255,94,122,.3);}
+.doc-status.pending{background:rgba(108,126,248,.1);color:var(--accent);border:1px solid rgba(108,126,248,.3);}
+.doc-status.needs_revision{background:rgba(245,200,66,.1);color:var(--yellow);border:1px solid rgba(245,200,66,.3);}
+.doc-section{margin-bottom:16px;}
+.doc-section:last-child{margin-bottom:0;}
+
+/* Right Sidebar */
+.sb-right{background:var(--bg2);border-left:1px solid var(--border);padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;}
+.prog-bar{height:4px;background:var(--bg4);border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:4px;transition:width .5s cubic-bezier(.4,0,.2,1);}
+.prog-row{display:flex;justify-content:space-between;margin-top:4px;}
+.prog-label{font-size:10px;color:var(--ink3);}
+.prog-pct{font-size:10px;font-family:var(--mono);color:var(--accent2);}
+.stages-track{display:flex;flex-direction:column;gap:1px;position:relative;}
+.stages-track::before{content:"";position:absolute;left:13px;top:12px;bottom:12px;width:1px;background:var(--border2);z-index:0;}
+.st-item{display:flex;align-items:flex-start;gap:8px;padding:6px 7px;border-radius:8px;position:relative;z-index:1;transition:background .18s;}
+.st-item.active{background:rgba(108,126,248,.1);border:1px solid rgba(108,126,248,.2);}
+.st-item:not(.active){border:1px solid transparent;}
+.st-item:not(.active):not(.done){opacity:.45;}
+.st-node{width:20px;height:20px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:var(--mono);color:var(--ink3);flex-shrink:0;margin-top:1px;transition:all .28s;}
+.st-item.done .st-node{background:var(--green);border-color:var(--green);color:#0a1208;}
+.st-item.active .st-node{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 10px rgba(108,126,248,.5);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 8px rgba(108,126,248,.4);}50%{box-shadow:0 0 18px rgba(108,126,248,.7);}}
+.st-label-main{font-size:11px;font-weight:500;color:var(--ink);}
+.st-label-sub{font-size:9px;color:var(--ink3);font-family:var(--mono);margin-top:1px;}
+.st-item.done .st-label-main{color:var(--green);}
+.st-item.active .st-label-main{color:var(--accent2);}
+.info-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;}
+.info-box-label{font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;}
+.info-box-val{font-size:11px;font-family:var(--mono);color:var(--accent2);word-break:break-all;}
+.info-box.green{background:rgba(0,212,170,.05);border-color:rgba(0,212,170,.15);}
+.info-box.green .info-box-label{color:var(--green);}
+.info-box.green .info-box-val{color:var(--ink2);font-family:var(--font);font-size:11px;}
+
+.spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .55s linear infinite;display:inline-block;vertical-align:middle;margin-right:5px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="logo">AI SDLC <span>/ Orchestrator</span></div>
+  <div class="vdiv"></div>
+  <div class="top-status"><span class="sdot" id="sdot"></span><span id="stext">Not configured</span></div>
+  <div class="tid-bar" id="tid-bar" style="display:none;">
+    <span style="color:var(--ink3)">Task</span><span id="tid-val">—</span>
+    <button onclick="cpyId()">copy</button>
+  </div>
+</header>
+
+<!-- Left Sidebar -->
+<aside class="sb-left">
+  <div>
+    <div class="sb-title">LLM Configuration</div>
+    <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px;">
+      <div class="fld"><label>Provider</label>
+        <select id="provider" onchange="updateModels()"><option>Groq</option><option>OpenAI</option><option>Gemini</option></select>
+      </div>
+      <div class="fld"><label>Model</label><select id="model"></select></div>
+      <div class="fld"><label>API Key</label><input type="password" id="apikey" placeholder="sk-…"></div>
+      <div class="fld"><label>Server URL</label><input type="text" id="surl" value="http://localhost:8000"></div>
+      <button class="btn btn-accent" onclick="applyCfg()" id="btn-cfg">Apply Configuration</button>
+      <div id="cfg-pill" class="pill"><span class="dot"></span>Not configured</div>
+    </div>
+  </div>
+  <div>
+    <div class="sb-title">Downloads</div>
+    <div class="dl-list" id="dl-sidebar"><div class="dl-empty">Documents appear here as they are generated.</div></div>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main" id="main">
+
+  <!-- Step 1 -->
+  <div class="step-card">
+    <div class="step-head">
+      <div class="step-num active" id="sn1">01</div>
+      <div class="step-title">Start Workflow — Enter your project name</div>
+    </div>
+    <div class="step-body">
+      <div class="input-row">
+        <div class="fld"><input type="text" id="pname" placeholder="e.g. E-Commerce Platform v2"></div>
+        <button class="btn btn-accent ibtn" id="btn-start" onclick="startWF()">Start</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step-card" id="req-card" style="display:none;">
+    <div class="step-head">
+      <div class="step-num" id="sn2">02</div>
+      <div class="step-title">Define Requirements — Describe your software in detail</div>
+    </div>
+    <div class="step-body">
+      <textarea class="ta" id="req-input" placeholder="Describe what the software should do…&#10;e.g. Build an e-commerce app with product catalog, cart, payments and order tracking."></textarea>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-green ibtn" id="btn-req" onclick="submitReq()">Submit Requirements →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ REVIEW PANEL — appears after requirements ══ -->
+  <div class="review-panel" id="review-panel">
+
+    <div class="rp-head">
+      <div class="rp-icon">🔍</div>
+      <div>
+        <div class="rp-title">Human Review Gate</div>
+        <div class="rp-sub">Each AI stage requires your approval before the workflow continues to the next step</div>
+      </div>
+    </div>
+
+    <!-- Stage selector tabs -->
+    <div class="rp-stages" id="rp-stages"></div>
+
+    <!-- Review body -->
+    <div class="rp-body">
+
+      <!-- Awaiting / done banner -->
+      <div class="rp-awaiting" id="rp-awaiting">
+        <div class="rp-awaiting-icon" id="rp-await-icon">⏳</div>
+        <div>
+          <div class="rp-awaiting-text" id="rp-await-title">Awaiting your decision</div>
+          <div class="rp-awaiting-sub" id="rp-await-sub">Select a decision below and optionally add feedback, then submit</div>
+        </div>
+      </div>
+
+      <!-- 3 big decision buttons -->
+      <div class="decision-btns">
+        <button class="dec-btn dec-btn-approve" id="dec-approve" onclick="selectDecision('approved')">
+          <span class="dec-icon">✅</span>
+          <span class="dec-label">Approve</span>
+          <span class="dec-sub">Looks good, continue</span>
+        </button>
+        <button class="dec-btn dec-btn-revision" id="dec-revision" onclick="selectDecision('needs_revision')">
+          <span class="dec-icon">✏️</span>
+          <span class="dec-label">Needs Revision</span>
+          <span class="dec-sub">Regenerate with feedback</span>
+        </button>
+        <button class="dec-btn dec-btn-reject" id="dec-reject" onclick="selectDecision('rejected')">
+          <span class="dec-icon">❌</span>
+          <span class="dec-label">Reject</span>
+          <span class="dec-sub">Stop this stage</span>
+        </button>
+      </div>
+
+      <!-- Feedback -->
+      <div class="fb-section">
+        <div class="fb-label">Feedback / Notes <span>(optional — explain your decision to the AI)</span></div>
+        <textarea class="fb-area" id="rev-fb" placeholder="e.g. The design looks good but please add a detailed database schema and API endpoint list…"></textarea>
+      </div>
+
+      <!-- Footer: submit + done pill -->
+      <div class="rp-footer">
+        <button class="btn-submit-rev" id="btn-rev" onclick="submitRev()">Submit Review &amp; Continue →</button>
+        <div class="stage-done-pill" id="stage-done-pill">✓ Stage Complete — select next stage above</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Output area -->
+  <div id="out-area"></div>
+</main>
+
+<!-- Right Sidebar -->
+<aside class="sb-right">
+  <div class="sb-title">Workflow Progress</div>
+  <div>
+    <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+    <div class="prog-row"><span class="prog-label">Completion</span><span class="prog-pct" id="prog-pct">0%</span></div>
+  </div>
+  <div class="stages-track" id="stages-track"></div>
+  <div class="info-box" id="node-box" style="display:none;">
+    <div class="info-box-label">Current Node</div>
+    <div class="info-box-val" id="node-val">—</div>
+  </div>
+  <div class="info-box green" id="next-box" style="display:none;">
+    <div class="info-box-label">Next Required</div>
+    <div class="info-box-val" id="next-val">—</div>
+  </div>
+</aside>
+
+</div>
+
+<script>
+const MODELS={
+  Groq:["llama-3.3-70b-versatile","llama-3.1-70b-versatile","mixtral-8x7b-32768","gemma2-9b-it"],
+  OpenAI:["gpt-4o","gpt-4o-mini","gpt-4-turbo","gpt-3.5-turbo"],
+  Gemini:["gemini-2.0-flash","gemini-1.5-pro","gemini-1.5-flash"]
+};
+const STAGE_LIST=[
+  {label:"Requirements",sub:"Extraction"},{label:"User Story",sub:"Generation"},
+  {label:"Product Review",sub:"Decision"},{label:"Design",sub:"Architecture"},
+  {label:"UML Diagrams",sub:"Modeling"},{label:"File Structure",sub:"Planning"},
+  {label:"Code Generation",sub:"Development"},{label:"Code Review",sub:"Quality"},
+  {label:"Security Review",sub:"Audit"},{label:"Test Cases",sub:"Coverage"},
+  {label:"QA Testing",sub:"Validation"},{label:"Deployment",sub:"Release"},
+];
+const REV_LIST=[
+  {key:"product_owner",label:"Product Owner Review",endpoint:"product_owner_review",docKey:"product_review",icon:"👤"},
+  {key:"design",       label:"Design Review",       endpoint:"design_review",       docKey:"design",        icon:"🎨"},
+  {key:"code",         label:"Code Review",          endpoint:"code_review",         docKey:"code",          icon:"💻"},
+  {key:"security",     label:"Security Review",      endpoint:"security_review",     docKey:"security",      icon:"🔒"},
+  {key:"testcase",     label:"Test Cases Review",    endpoint:"test_cases_review",   docKey:"test_cases",    icon:"🧪"},
+  {key:"qa",           label:"QA Testing Review",    endpoint:"qa_testing_review",   docKey:"qa",            icon:"✔️"},
+];
+const DOC_LABELS={requirements:"Requirements",user_story:"User Story",product_review:"Product Review",design:"Design Document",uml:"UML Diagrams",file_structure:"File Structure",code:"Code Review",security:"Security Review",test_cases:"Test Cases",qa:"QA Report",start:"Workflow Start"};
+const FIELD_META={
+  status:{title:"Status",type:"status"},current_node:{title:"Current Node",type:"code"},
+  next_required_input:{title:"Next Required Input",type:"text"},requirements:{title:"Requirements",type:"list"},
+  user_stories:{title:"User Stories",type:"list"},product_decision:{title:"Product Decision",type:"status"},
+  feedback_reason:{title:"Feedback",type:"text"},design_documents:{title:"Design Documents",type:"object"},
+  uml_diagrams:{title:"UML Diagrams",type:"object"},file_structure:{title:"File Structure",type:"object"},
+  generated_code:{title:"Generated Code",type:"code"},code_review_status:{title:"Code Review Decision",type:"status"},
+  code_review_feedback:{title:"Code Review Feedback",type:"text"},security_review_status:{title:"Security Review",type:"status"},
+  security_review_feedback:{title:"Security Feedback",type:"text"},test_cases:{title:"Test Cases",type:"object"},
+  test_case_review_status:{title:"Test Case Review",type:"status"},test_case_review_feedback:{title:"Test Case Feedback",type:"text"},
+  qa_testing_status:{title:"QA Testing",type:"status"},qa_testing_feedback:{title:"QA Feedback",type:"text"},
+  progress:{title:"Progress",type:"text"},
+};
+
+const DOCS={},OUTS=[];
+let cfg={configured:false,taskId:null,started:false,reqDone:false,curRev:0,doneRevs:new Set(),baseUrl:"http://localhost:8000"};
+let selectedDecision="";
+
+function updateModels(){const p=document.getElementById("provider").value;document.getElementById("model").innerHTML=MODELS[p].map(x=>`<option>${x}</option>`).join("");}
+updateModels();renderStages(0);
+
+// Stage tracker
+function renderStages(done=0){
+  const track=document.getElementById("stages-track");
+  const pct=Math.round(done/STAGE_LIST.length*100);
+  track.innerHTML=STAGE_LIST.map((s,i)=>{const isDone=i<done,isActive=(i===done&&cfg.started);return`<div class="st-item${isDone?" done":isActive?" active":""}"><div class="st-node">${isDone?"✓":i+1}</div><div><div class="st-label-main">${s.label}</div><div class="st-label-sub">${s.sub}</div></div></div>`;}).join("");
+  document.getElementById("prog-fill").style.width=pct+"%";
+  document.getElementById("prog-pct").textContent=pct+"%";
+  const a=track.querySelector(".st-item.active");if(a)a.scrollIntoView({block:"nearest",behavior:"smooth"});
+}
+function setNodeInfo(node,next){
+  if(node){document.getElementById("node-box").style.display="block";document.getElementById("node-val").textContent=node;}
+  if(next){document.getElementById("next-box").style.display="block";document.getElementById("next-val").textContent=next;}
+}
+
+// Review panel
+function showReviewPanel(){
+  document.getElementById("review-panel").classList.add("visible");
+  renderRevTabs();setActiveRev(cfg.curRev);
+  setTimeout(()=>document.getElementById("review-panel").scrollIntoView({behavior:"smooth",block:"start"}),250);
+}
+function renderRevTabs(){
+  document.getElementById("rp-stages").innerHTML=REV_LIST.map((r,i)=>{
+    const done=cfg.doneRevs.has(r.key),active=i===cfg.curRev;
+    return`<div class="rp-stage-tab${done?" done":active?" active":""}" onclick="setActiveRev(${i})"><span class="tab-num">${done?"✓":i+1}</span>${r.icon} ${r.label}</div>`;
+  }).join("");
+}
+function setActiveRev(i){
+  cfg.curRev=i;renderRevTabs();
+  const cur=REV_LIST[i],done=cfg.doneRevs.has(cur.key);
+  // Update awaiting banner
+  const aw=document.getElementById("rp-awaiting");
+  document.getElementById("rp-await-icon").textContent=done?"✅":"⏳";
+  document.getElementById("rp-await-title").textContent=done?`${cur.label} — Completed`:`${cur.label} — Awaiting your decision`;
+  document.getElementById("rp-await-sub").textContent=done?"This stage has been reviewed and submitted.":"Select a decision below and optionally add feedback, then submit.";
+  aw.className="rp-awaiting"+(done?" done-state":"");
+  // Buttons
+  const btns=["approve","revision","reject"];
+  btns.forEach(d=>{const b=document.getElementById("dec-"+d);b.classList.remove("selected");b.disabled=done;});
+  document.getElementById("rev-fb").disabled=done;
+  document.getElementById("rev-fb").value="";
+  document.getElementById("btn-rev").disabled=done;
+  document.getElementById("stage-done-pill").className=done?"stage-done-pill show":"stage-done-pill";
+  selectedDecision="";
+}
+function selectDecision(val){
+  selectedDecision=val;
+  document.getElementById("dec-approve").classList.toggle("selected",val==="approved");
+  document.getElementById("dec-revision").classList.toggle("selected",val==="needs_revision");
+  document.getElementById("dec-reject").classList.toggle("selected",val==="rejected");
+}
+
+// Downloads
+function refreshDlSidebar(){
+  const sb=document.getElementById("dl-sidebar"),keys=Object.keys(DOCS);
+  if(!keys.length){sb.innerHTML=`<div class="dl-empty">Documents appear here as they are generated.</div>`;return;}
+  sb.innerHTML=keys.map(k=>`<div class="dl-item"><div class="dl-item-name">${DOC_LABELS[k]||k}</div><div class="dl-btns"><button class="dl-btn" onclick="dlDoc('${k}','txt')">TXT</button><button class="dl-btn" onclick="dlDoc('${k}','json')">JSON</button><button class="dl-btn" onclick="dlDoc('${k}','html')">HTML</button></div></div>`).join("");
+}
+function storeDoc(key,stage,data,raw){DOCS[key]={key,stage,data,raw,ts:new Date().toISOString()};refreshDlSidebar();}
+function dlDoc(key,fmt){const e=DOCS[key];if(!e)return;const f=`sdlc-${key}-${Date.now()}`;if(fmt==="json")trigger(f+".json",JSON.stringify(e.raw,null,2),"application/json");else if(fmt==="txt")trigger(f+".txt",toTxt(e),"text/plain");else trigger(f+".html",toHTMLExport([e]),"text/html");}
+function dlCard(id,fmt){const e=OUTS.find(o=>o.id===id);if(!e)return;const f=`sdlc-${e.stage.replace(/\s+/g,"-").toLowerCase()}-${Date.now()}`;if(fmt==="json")trigger(f+".json",JSON.stringify(e.raw,null,2),"application/json");else if(fmt==="txt")trigger(f+".txt",toTxt(e),"text/plain");else trigger(f+".html",toHTMLExport([e]),"text/html");}
+function trigger(name,content,mime){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([content],{type:mime}));a.download=name;a.click();URL.revokeObjectURL(a.href);}
+function toTxt(e){let t=`═══════════════════════════\nSTAGE: ${e.stage}\nTIMESTAMP: ${e.ts}\n═══════════════════════════\n`;for(const[k,v]of Object.entries(e.data||{})){t+=`\n▶ ${k.toUpperCase().replace(/_/g," ")}\n${"─".repeat(36)}\n`;if(Array.isArray(v))t+=v.map(x=>`  • ${x}`).join("\n")+"\n";else if(v&&typeof v==="object")t+=JSON.stringify(v,null,2).split("\n").map(l=>"  "+l).join("\n")+"\n";else t+=`  ${v}\n`;}return t;}
+function toHTMLExport(entries){const rows=entries.map(e=>`<section style="margin-bottom:40px;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><span style="font-family:monospace;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;background:#eef0ff;color:#5b6cf9;border:1px solid #c7cdff;">${e.stage}</span><span style="font-size:11px;color:#8891a8;font-family:monospace;">${e.ts||""}</span></div>${renderHumanReadable(e.data,true)}</section>`).join('<hr style="border:none;border-top:1px solid #eceef3;margin:30px 0;">');return`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>SDLC Export</title><style>body{font-family:'Segoe UI',sans-serif;background:#fff;color:#0f1117;max-width:860px;margin:40px auto;padding:0 24px;}h2{font-size:16px;font-weight:600;margin:22px 0 6px;padding-bottom:6px;border-bottom:2px solid #5b6cf9;}p{color:#4a5168;line-height:1.75;margin-bottom:8px;}ul{padding-left:20px;margin-bottom:10px;}li{margin-bottom:4px;color:#4a5168;}pre{background:#f4f5f8;padding:12px;border-radius:7px;font-size:12px;overflow-x:auto;white-space:pre-wrap;border:1px solid #eceef3;}</style></head><body><h1 style="font-size:22px;font-weight:700;margin-bottom:4px;">AI SDLC Orchestrator — Export</h1><p style="color:#8891a8;font-size:13px;margin-bottom:28px;">Generated ${new Date().toLocaleString()}</p>${rows}</body></html>`;}
+
+// Rendering
+function escHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function statusBadge(v){const m={approved:"approved",completed:"approved",passed:"approved",done:"approved",rejected:"rejected",failed:"rejected",needs_revision:"needs_revision",revision:"needs_revision",pending:"pending",waiting:"pending",in_progress:"pending"};const c=m[String(v).toLowerCase()]||"pending";return`<span class="doc-status ${c}">${escHtml(String(v))}</span>`;}
+function renderValue(val,type){if(val===null||val===undefined)return"";if(type==="status")return statusBadge(val);if(type==="code")return`<div class="doc-code">${escHtml(String(val))}</div>`;if(type==="list"&&Array.isArray(val))return`<ul class="doc-ul">${val.map(x=>`<li>${escHtml(String(x))}</li>`).join("")}</ul>`;if(type==="object"&&typeof val==="object"&&!Array.isArray(val))return renderObj(val);if(Array.isArray(val))return`<ul class="doc-ul">${val.map(x=>`<li>${escHtml(typeof x==="object"?JSON.stringify(x):String(x))}</li>`).join("")}</ul>`;if(typeof val==="object")return renderObj(val);return`<p class="doc-p">${escHtml(String(val))}</p>`;}
+function renderObj(obj){if(!obj||typeof obj!=="object")return"";const entries=Object.entries(obj);const allSimple=entries.every(([,v])=>typeof v!=="object"||v===null);if(allSimple)return`<div class="doc-kv">${entries.map(([k,v])=>`<div class="doc-kv-k">${escHtml(k.replace(/_/g," "))}</div><div class="doc-kv-v">${escHtml(String(v))}</div>`).join("")}</div>`;return entries.map(([k,v])=>`<div class="doc-h3">${escHtml(k.replace(/_/g," "))}</div>${Array.isArray(v)?`<ul class="doc-ul">${v.map(x=>`<li>${escHtml(String(x))}</li>`).join("")}</ul>`:typeof v==="object"?renderObj(v):`<p class="doc-p">${escHtml(String(v))}</p>`}`).join("");}
+function renderHumanReadable(d){if(!d)return"<p class='doc-p'>No data returned.</p>";let html="";for(const[key,meta]of Object.entries(FIELD_META)){if(d[key]==null)continue;html+=`<div class="doc-section"><div class="doc-h2">${meta.title}</div>${renderValue(d[key],meta.type)}</div>`;}for(const[k,v]of Object.entries(d)){if(FIELD_META[k]||v==null)continue;html+=`<div class="doc-section"><div class="doc-h2">${escHtml(k.replace(/_/g," "))}</div>${renderValue(v,Array.isArray(v)?"list":typeof v==="object"?"object":"text")}</div>`;}return html||"<p class='doc-p'>No readable data returned.</p>";}
+
+// Output card
+function showOut(stage,docKey,data,raw){
+  const id="o"+Date.now();OUTS.unshift({id,stage,docKey,data,raw,ts:new Date().toISOString()});storeDoc(docKey,stage,data,raw);
+  const area=document.getElementById("out-area"),box=document.createElement("div");
+  box.className="out-card";box.id=id;
+  box.innerHTML=`<div class="out-card-head"><span class="stage-badge">${stage}</span><span class="out-ts">${new Date().toLocaleTimeString()}</span><div class="out-dl-group"><button class="out-dl-btn" onclick="dlCard('${id}','txt')">↓ TXT</button><button class="out-dl-btn" onclick="dlCard('${id}','json')">↓ JSON</button><button class="out-dl-btn" onclick="dlCard('${id}','html')">↓ HTML</button></div></div><div class="out-card-body"><div class="doc-h1">${stage}</div>${renderHumanReadable(data)}</div>`;
+  area.insertBefore(box,area.firstChild);
+}
+
+// API
+function applyCfg(){
+  const key=document.getElementById("apikey").value.trim();if(!key){alert("Enter your API key.");return;}
+  const provider=document.getElementById("provider").value,model=document.getElementById("model").value;
+  cfg.baseUrl=document.getElementById("surl").value.trim();
+  const btn=document.getElementById("btn-cfg");btn.innerHTML=`<span class="spin"></span>Configuring…`;btn.disabled=true;
+  fetch(`${cfg.baseUrl}/config/llm`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider,model,api_key:key})})
+    .then(r=>r.json()).then(d=>{if(d.status==="ok"){cfg.configured=true;const p=document.getElementById("cfg-pill");p.className="pill ok";p.innerHTML=`<span class="dot"></span>${provider} / ${model}`;document.getElementById("sdot").className="sdot ok";document.getElementById("stext").textContent=`${provider} · ${model}`;}else alert("Failed: "+(d.detail||"error"));}).catch(()=>alert("Cannot reach server.")).finally(()=>{btn.textContent="Apply Configuration";btn.disabled=false;});
+}
+
+function startWF(){
+  const name=document.getElementById("pname").value.trim();if(!name)return;
+  const btn=document.getElementById("btn-start");btn.innerHTML=`<span class="spin"></span>Starting…`;btn.disabled=true;
+  fetch(`${cfg.baseUrl}/sdlc/workflow/start`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({project_name:name})})
+    .then(r=>r.json()).then(d=>{cfg.taskId=d.task_id;cfg.started=true;document.getElementById("tid-bar").style.display="flex";document.getElementById("tid-val").textContent=d.task_id;document.getElementById("pname").disabled=true;btn.textContent="Started ✓";document.getElementById("sn1").className="step-num done";document.getElementById("req-card").style.display="block";document.getElementById("sn2").className="step-num active";renderStages(1);setNodeInfo(d.current_node,d.next_required_input);showOut("Workflow Start","start",{status:d.status,current_node:d.current_node,next_required_input:d.next_required_input,progress:d.progress},d);}).catch(()=>{alert("Server error.");btn.disabled=false;btn.textContent="Start";});
+}
+
+function submitReq(){
+  const task=document.getElementById("req-input").value.trim();if(!task)return;
+  const btn=document.getElementById("btn-req");btn.innerHTML=`<span class="spin"></span>Processing…`;btn.disabled=true;
+  fetch(`${cfg.baseUrl}/sdlc/workflow/${cfg.taskId}/requirements`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({task})})
+    .then(r=>r.json()).then(d=>{cfg.reqDone=true;document.getElementById("req-input").disabled=true;btn.textContent="Submitted ✓";document.getElementById("sn2").className="step-num done";renderStages(2);const data=d.data||d;setNodeInfo(data.current_node,data.next_required_input);showOut("Requirements","requirements",data,d);showReviewPanel();}).catch(()=>{alert("Server error.");btn.disabled=false;btn.textContent="Submit Requirements →";});
+}
+
+function submitRev(){
+  if(!selectedDecision){alert("Please select a decision first:\n✅ Approve  ✏️ Needs Revision  ❌ Reject");return;}
+  const cur=REV_LIST[cfg.curRev],feedback=document.getElementById("rev-fb").value.trim();
+  const btn=document.getElementById("btn-rev");btn.innerHTML=`<span class="spin"></span>Submitting…`;btn.disabled=true;
+  fetch(`${cfg.baseUrl}/sdlc/workflow/${cfg.taskId}/${cur.endpoint}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({review_status:selectedDecision,feedback_reason:feedback})})
+    .then(r=>r.json()).then(d=>{
+      cfg.doneRevs.add(cur.key);
+      renderStages(2+cfg.doneRevs.size);
+      const data=d.data||d;setNodeInfo(data.current_node,data.next_required_input);
+      showOut(cur.label,cur.docKey,data,d);
+      // Mark done and advance
+      document.getElementById("stage-done-pill").className="stage-done-pill show";
+      selectedDecision="";btn.disabled=false;btn.textContent="Submit Review & Continue →";
+      // Auto-advance to next pending
+      const nextIdx=REV_LIST.findIndex((r,i)=>i>cfg.curRev&&!cfg.doneRevs.has(r.key));
+      if(nextIdx!==-1){cfg.curRev=nextIdx;setTimeout(()=>setActiveRev(nextIdx),350);}
+      renderRevTabs();
+    }).catch(()=>{alert("Server error.");btn.disabled=false;btn.textContent="Submit Review & Continue →";});
+}
+
+function cpyId(){if(cfg.taskId){navigator.clipboard.writeText(cfg.taskId).then(()=>{const el=document.getElementById("tid-val"),o=el.textContent;el.textContent="Copied!";setTimeout(()=>el.textContent=o,1300);});}}
+</script>
+</body>
+</html>

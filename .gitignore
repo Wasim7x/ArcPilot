@@ -9,3 +9,5 @@ test.py
 test_endpoints.py
 test_workflow.py
 backend.py
+updated_app/
+command.txt
