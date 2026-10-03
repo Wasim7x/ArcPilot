@@ -1,31 +1,43 @@
-from src import logger
-from src import exception
-from llm.groq_llm import GroqLLM
-from src.llm.openai_llm import OpenAILLM
-from src.state.sdlc_state import SDLCState, DesignDocument
+import sys
+from typing import Any
+
+from src.exception import ArcPilotException
+from src.logger import logger
+from src.node.sdlc_node import extract_text_content
+from src.state.sdlc_state import DesignDocument, SDLCState
+
 
 class DesignNode:
-    """ This node is responsible for designing the software architecture and components based on the requirements. 
+    """
+    Responsible for generating comprehensive Functional and Technical Architecture Design Documents
+    based on the requirements and user stories, as well as handling design review decisions.
     """
     def __init__(self, llm):
         self.llm = llm
 
-    def create_design_document(self, state: SDLCState):
+    def create_design_document(self, state: SDLCState) -> dict[str, Any]:
         """
-        Generates the Design document functional and technical
+        Generates both functional and technical design documents.
         """
-        # logger.info("Creating design document based on the requirements and user stories.")
-        requirements = state.get('requirements', '')
-        user_stories = state.get('user_stories', '')
-        project_name = state.get('project_name', '')
+        logger.info("Executing create_design_document node")
+        requirements = state.get('requirements', [])
+        user_stories = state.get('user_stories', [])
+        project_name = state.get('project_name', 'ArcPilot Project')
+        structured_reqs = state.get('structured_requirements', {})
+
         design_feedback = None
-        if 'design_documents' in state:
-            design_feedback = state.get('design_documents','')['feedback_reason']
+        docs = state.get('design_documents')
+        if docs:
+            if isinstance(docs, dict):
+                design_feedback = docs.get('feedback_reason')
+            elif hasattr(docs, 'feedback_reason'):
+                design_feedback = docs.feedback_reason
 
         functional_documents = self.generate_functional_design(
             project_name=project_name,
             requirements=requirements,
             user_stories=user_stories,
+            structured_reqs=structured_reqs,
             design_feedback=design_feedback
         )
 
@@ -33,138 +45,221 @@ class DesignNode:
             project_name=project_name,
             requirements=requirements,
             user_stories=user_stories,
+            structured_reqs=structured_reqs,
             design_feedback=design_feedback
         )
 
         design_documents = DesignDocument(
             functional=functional_documents,
-            technical = technical_documents
+            technical=technical_documents,
+            review_status="pending",
+            feedback_reason=design_feedback or "",
+            architecture_overview="Modular Service-Oriented Architecture with FastAPI",
+            database_schema="In-memory / SQLite relational schema",
+            api_specifications="REST API endpoints"
         )
+
+        # Update traceability matrix with design sections
+        matrix = state.get("traceability_matrix", [])
+        for item in matrix:
+            item["design_sections"] = [
+                f"FDD: Functional Requirements ({item.get('requirement_id')})",
+                f"TDD: Component Implementation ({item.get('requirement_id')})"
+            ]
 
         return {
             **state,
             "current_node": "create_design_document",
             "next_required_input": "design_review",
-            "design_documents": design_documents,
-            "technical_documents": technical_documents
-        }    
-    
-    def generate_functional_design(self, project_name, requirements, user_stories, design_feedback):
-        """
-        Helper node to generate functional design document
-        """
-        # logger.info("Creating Functional Design Document")
-        prompt = f"""
-            Create a comprehensive functional design document for {project_name} in Markdown format.
-    
-            The document should use proper Markdown syntax with headers (# for main titles, ## for sections, etc.), 
-            bullet points, tables, and code blocks where appropriate.
-            
-            Requirements:
-            {self._format_list(requirements)}
-            
-            User Stories:
-            {self._format_user_stories(user_stories)}
+            "progress": 40,
+            "design_documents": design_documents.model_dump(),
+            "technical_documents": technical_documents,
+            "traceability_matrix": matrix
+        }
 
-             {f"When creating this functional design document, please incorporate the following feedback about the requirements: {design_feedback}" if design_feedback else ""}
-            
-            The functional design document should include the following sections, each with proper Markdown formatting:
-            
-            # Functional Design Document: {project_name}
-            
-            ## 1. Introduction and Purpose
-            ## 2. Project Scope
-            ## 3. User Roles and Permissions
-            ## 4. Functional Requirements Breakdown
-            ## 5. User Interface Design Guidelines
-            ## 6. Business Process Flows
-            ## 7. Data Entities and Relationships
-            ## 8. Validation Rules
-            ## 9. Reporting Requirements
-            ## 10. Integration Points
-            
-            Make sure to maintain proper Markdown formatting throughout the document.
+    def generate_functional_design(
+        self, project_name: str, requirements: Any, user_stories: Any,
+        structured_reqs: dict[str, Any], design_feedback: str | None
+    ) -> str:
         """
+        Generates comprehensive Functional Design Document in Markdown format.
+        """
+        logger.info("Generating Functional Design Document")
+        prompt = f"""
+Create a comprehensive, production-grade Functional Design Document for {project_name} in Markdown format.
+
+Requirements:
+{self._format_list(requirements)}
+
+User Stories:
+{self._format_user_stories(user_stories)}
+
+{f"Feedback to incorporate from previous review: {design_feedback}" if design_feedback else ""}
+
+The Functional Design Document must be exhaustive and structured with the following exact sections:
+# Functional Design Document: {project_name}
+
+## 1. Executive Summary and Scope
+- Project Purpose and Target Audience
+- Core Value Proposition
+- In-Scope Features and Out-of-Scope Boundaries
+
+## 2. Actors, Personas and User Roles
+- Detailed list of actors, credentials, permissions, and roles
+
+## 3. End-to-End User Journeys and Workflows
+- Step-by-step user interaction flows (e.g. Input submission, Processing, Results display)
+- Textual flowcharts and state transitions
+
+## 4. Detailed Functional Requirements Breakdown
+- Deep dive into each requirement ID (e.g. FR-01, FR-02)
+- Inputs, Processing rules, Expected outputs, Edge cases
+
+## 5. Business Rules and Validation Criteria
+- Input validation (ranges, required fields, constraints)
+- Business logic constraints and computation policies
+
+## 6. Error Handling and User Feedback Policies
+- User-facing error messages, HTTP status mapping, graceful degradation
+
+## 7. External Integrations and Data Flow
+- Third-party APIs, communication protocols, fallback behaviors
+
+Format the document cleanly in standard Markdown with headers, tables, and bullet points.
+"""
         try:
             response = self.llm.invoke(prompt)
-
+            content = extract_text_content(response)
+            return content
         except Exception as e:
-            logger.error(f"Error generating functional design document: {str(e)}")
-            raise exception.MyException(error_message=str(e), error_detail=exception.sys)            
+            logger.error(f"Error generating functional design document: {e}")
+            raise ArcPilotException(e, sys)
 
-        return response.content   
-
-    def generate_technical_design(self, project_name, requirements, user_stories, design_feedback):
-            """
-                Helper method to generate technical design document in Markdown format
-            """
-            print("----- Creating Technical Design Document ----")
-            prompt = f"""
-                Create a comprehensive technical design document for {project_name} in Markdown format.
-                
-                The document should use proper Markdown syntax with headers (# for main titles, ## for sections, etc.), 
-                bullet points, tables, code blocks, and diagrams described in text form where appropriate.
-                
-                Requirements:
-                {self._format_list(requirements)}
-                
-                User Stories:
-                {self._format_user_stories(user_stories)}
-
-                {f"When creating this technical design document, please incorporate the following feedback about the requirements: {design_feedback}" if design_feedback else ""}
-                
-                The technical design document should include the following sections, each with proper Markdown formatting:
-                
-                # Technical Design Document: {project_name}
-
-                 ## 1. System Architecture
-                ## 2. Technology Stack and Justification
-                ## 3. Database Schema
-                ## 4. API Specifications
-                ## 5. Security Considerations
-                ## 6. Performance Considerations
-                ## 7. Scalability Approach
-                ## 8. Deployment Strategy
-                ## 9. Third-party Integrations
-                ## 10. Development, Testing, and Deployment Environments
-                
-                For any code examples, use ```language-name to specify the programming language.
-                For database schemas, represent tables and relationships using Markdown tables.
-                Make sure to maintain proper Markdown formatting throughout the document.
-            """
-            try:
-                response = self.llm.invoke(prompt)
-            except Exception as e:
-                logger.error(f"Error generating technical design document: {str(e)}")
-                raise exception.MyException(error_message=str(e), error_detail=exception.sys)
-                            
-            return response.content
-    
-    def _format_list(self, items):
-        """Format list items nicely for prompt"""
-        return '\n'.join([f"- {item}" for item in items])
-    
-
-    def _format_user_stories(self, stories):
-        """Format user stories nicely for prompt"""
-        formatted_stories = []
-        for story in stories:
-            if hasattr(story, 'id') and hasattr(story, 'title') and hasattr(story, 'description'):
-                # Handle class instance
-                formatted_stories.append(f"- ID: {story.id}\n  Title: {story.title}\n  Description: {story.description}")
-            elif isinstance(story, dict):
-                # Handle dictionary
-                formatted_stories.append(f"- ID: {story.get('id', 'N/A')}\n  Title: {story.get('title', 'N/A')}\n  Description: {story.get('description', 'N/A')}")
-        return '\n'.join(formatted_stories)
-    
-    def design_review_router(self, state: SDLCState):
+    def generate_technical_design(
+        self, project_name: str, requirements: Any, user_stories: Any,
+        structured_reqs: dict[str, Any], design_feedback: str | None
+    ) -> str:
         """
-            Evaluates design review is required or not.
+        Generates comprehensive Technical Design Document in Markdown format.
         """
-        return state['design_documents']['review_status']
+        logger.info("Generating Technical Design Document")
+        prompt = f"""
+Create an in-depth, production-ready Technical Design Document for {project_name} in Markdown format.
 
-    def design_review(self, state: SDLCState):
+Requirements:
+{self._format_list(requirements)}
+
+User Stories:
+{self._format_user_stories(user_stories)}
+
+{f"Feedback to incorporate: {design_feedback}" if design_feedback else ""}
+
+The Technical Design Document must include the following comprehensive sections:
+# Technical Design Document: {project_name}
+
+## 1. System Architecture Overview
+- High-level architecture (Layered / Clean Architecture / Modular Monolith)
+- Component diagrams described in text or ASCII
+- Separation of concerns (Routers, Services, Clients, Models)
+
+## 2. Technology Stack & Framework Selection
+- Backend: Python 3.11+, FastAPI, Pydantic v2, Uvicorn
+- Testing: Pytest, Unittest
+- Security: Bandit, Ruff, Hash verification
+
+## 3. Data Models and Database Schema
+- Table schemas, primary/foreign keys, field types, constraints (represented as Markdown tables)
+- Data serialization and Pydantic schemas
+
+## 4. API Endpoint Specifications
+- Exact HTTP Methods, URL paths, Request body schemas, Response schemas, and Status codes
+
+## 5. External API Integrations & Resiliency
+- Client adapters with timeouts, retries, and offline mock fallbacks
+- Environment variable specifications for configuration
+
+## 6. Security Architecture & Threat Modeling
+- Secret management via environment variables
+- Input sanitization, parameterization, and CORS policies
+
+## 7. Logging, Metrics, and Observability
+- Structured logging format, health probe endpoints (/health, /ready)
+
+## 8. Deployment and Containerization Strategy
+- Docker container specification, multi-stage build strategy, non-root execution
+
+Use proper Markdown tables, code blocks with syntax highlighting, and precise technical detail.
+"""
+        try:
+            response = self.llm.invoke(prompt)
+            content = extract_text_content(response)
+            return content
+        except Exception as e:
+            logger.error(f"Error generating technical design document: {e}")
+            raise ArcPilotException(e, sys)
+
+    def design_review(self, state: SDLCState) -> SDLCState:
         """
-            Performs the Design review
+        Processes human review of the design documents.
+        Never left as pass.
         """
-        pass
+        logger.info("Processing design review decision")
+        docs = state.get("design_documents", {})
+        review_status = "approved"
+        feedback = ""
+
+        if isinstance(docs, dict):
+            review_status = docs.get("review_status", "approved")
+            feedback = docs.get("feedback_reason", "")
+        elif hasattr(docs, "review_status"):
+            review_status = getattr(docs, "review_status", "approved")
+            feedback = getattr(docs, "feedback_reason", "")
+
+        if feedback:
+            state["feedback_reason"] = feedback
+
+        state["current_node"] = "design_review"
+
+        if review_status.strip().lower() in ("approved", "approve", "accept"):
+            state["progress"] = 45
+            state["next_required_input"] = "generate_code"
+        else:
+            state["next_required_input"] = "create_design_document"
+
+        return state
+
+    def design_review_router(self, state: SDLCState) -> str:
+        """
+        Routes the workflow based on the design review decision.
+        """
+        docs = state.get("design_documents", {})
+        status = ""
+        if isinstance(docs, dict):
+            status = docs.get("review_status", "")
+        elif hasattr(docs, "review_status"):
+            status = getattr(docs, "review_status", "")
+
+        status = str(status).strip().lower()
+        if status in ("approved", "approve", "yes", "accept"):
+            return "approved"
+        return "feedback"
+
+    def _format_list(self, items: Any) -> str:
+        if not items:
+            return "No requirements specified."
+        if isinstance(items, list):
+            return "\n".join([f"- {item}" for item in items])
+        return str(items)
+
+    def _format_user_stories(self, stories: Any) -> str:
+        if not stories:
+            return "No user stories available."
+        formatted = []
+        for s in stories:
+            if isinstance(s, dict):
+                formatted.append(f"- [{s.get('story_id', 'US')}] {s.get('title', '')}: {s.get('description', '')}")
+            elif hasattr(s, "title"):
+                formatted.append(f"- [{getattr(s, 'story_id', 'US')}] {s.title}: {getattr(s, 'description', '')}")
+            else:
+                formatted.append(f"- {s!s}")
+        return "\n".join(formatted)

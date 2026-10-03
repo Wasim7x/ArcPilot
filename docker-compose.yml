@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  arcpilot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: arcpilot_server
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - PORT=8000
+      - LOG_LEVEL=INFO
+      - ENABLE_REDIS=true
+      - REDIS_URL=redis://redis:6379/0
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - LLM_PROVIDER=${LLM_PROVIDER:-groq}
+      - LLM_MODEL=${LLM_MODEL:-llama-3.3-70b-versatile}
+      - MAX_REPAIR_ATTEMPTS=3
+      - TEST_TIMEOUT=45
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - arcpilot_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: arcpilot_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - arcpilot_net
+
+volumes:
+  redis_data:
+
+networks:
+  arcpilot_net:
+    driver: bridge

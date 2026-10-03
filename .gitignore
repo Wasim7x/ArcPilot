@@ -11,3 +11,8 @@ test_workflow.py
 backend.py
 updated_app/
 command.txt
+artifacts/
+.pytest_cache/
+
+tests/
+.github/
