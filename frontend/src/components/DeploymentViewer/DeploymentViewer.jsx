@@ -1,12 +1,18 @@
 import React from 'react';
 import { workflowApi } from '../../services/api';
+import { safeText } from '../../utils/formatUtils';
 
 export default function DeploymentViewer({ deploymentResult, deploymentFeedback, taskId, baseUrl }) {
   const isSuccess =
     deploymentResult && (deploymentResult.status === 'success' || deploymentResult.build_successful);
 
+  const feedbackText = safeText(
+    deploymentFeedback || deploymentResult?.message,
+    'Deployment packaging and smoke test verification completed successfully.'
+  );
+
   return (
-    <div className="deployment-viewer-container" id="deployment-viewer">
+    <div className="deployment-view-container" id="deployment-viewer">
       <div className="deploy-box">
         <div className="deploy-info">
           <div className="deploy-title">
@@ -29,20 +35,19 @@ export default function DeploymentViewer({ deploymentResult, deploymentFeedback,
         )}
       </div>
 
-      <pre className="code-viewer-block">
-        {deploymentFeedback ||
-          deploymentResult?.message ||
-          'Deployment packaging and smoke test verification completed successfully.'}
-      </pre>
+      <div className="deployment-report-box">
+        <div className="report-title">Deployment Verification &amp; Packaging Log</div>
+        <pre className="code-viewer-block">
+          {feedbackText}
+        </pre>
+      </div>
 
       <style>{`
-        .deployment-viewer-container {
+        .deployment-view-container {
           display: flex;
           flex-direction: column;
           gap: 14px;
-          overflow-y: auto;
-          max-height: calc(100vh - 280px);
-          padding-right: 6px;
+          width: 100%;
         }
         .deploy-box {
           background: var(--bg3);
@@ -74,17 +79,29 @@ export default function DeploymentViewer({ deploymentResult, deploymentFeedback,
           font-size: 12.5px;
           text-decoration: none;
         }
+        .deployment-report-box {
+          background: var(--bg3);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-md);
+          padding: 14px;
+        }
+        .report-title {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--ink3);
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+          margin-bottom: 8px;
+        }
         .code-viewer-block {
           font-family: var(--mono);
           font-size: 11.5px;
           line-height: 1.65;
           color: var(--ink);
-          background: var(--bg3);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-sm);
-          padding: 16px;
           white-space: pre-wrap;
           word-break: break-word;
+          overflow-x: auto;
+          margin: 0;
         }
       `}</style>
     </div>

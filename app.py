@@ -34,7 +34,12 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing ArcPilot server startup via lifespan...")
     app.state.executor = ThreadPoolExecutor(max_workers=8)
     default_provider = os.getenv("LLM_PROVIDER", "groq")
-    default_model = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
+    default_model = os.getenv("LLM_MODEL")
+    if not default_model:
+        if default_provider.strip().lower() in ("ollama", "chatollama"):
+            default_model = os.getenv("OLLAMA_MODEL", "qwen3.8:27b")
+        else:
+            default_model = "llama-3.3-70b-versatile"
 
     # Automatically initialize LLM if not already set and an API key is in environment
     try:
@@ -65,10 +70,12 @@ app.state.executor = ThreadPoolExecutor(max_workers=8)
 app.state.active_processing_workflows = set()
 app.state.llm = None
 app.state.graph = None
+default_prov = os.getenv("LLM_PROVIDER", "groq")
+default_mod = os.getenv("LLM_MODEL") or (os.getenv("OLLAMA_MODEL", "qwen3.8:27b") if default_prov.strip().lower() in ("ollama", "chatollama") else "llama-3.3-70b-versatile")
 app.state.llm_config = {
-    "provider": os.getenv("LLM_PROVIDER", "groq"),
-    "model": os.getenv("LLM_MODEL", "llama-3.3-70b-versatile"),
-    "api_key": "***" if os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("GEMINI_API_KEY") else ""
+    "provider": default_prov,
+    "model": default_mod,
+    "api_key": "N/A (Local)" if default_prov.strip().lower() in ("ollama", "chatollama") else ("***" if os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("GEMINI_API_KEY") else "")
 }
 
 
@@ -83,7 +90,7 @@ app.add_middleware(
 
 # ── Request / Response Schemas ─────────────────────────────────────────────────
 class LLMConfigRequest(BaseModel):
-    provider: str = Field("Groq", description="Provider name: Groq, OpenAI, Gemini, Mock")
+    provider: str = Field("Groq", description="Provider name: Groq, OpenAI, Gemini, Ollama, Mock")
     model: str | None = Field(None, description="Model identifier")
     api_key: str | None = Field(None, description="Provider API key")
 
@@ -124,14 +131,21 @@ def _check_task(task_id: str) -> dict:
     return state
 
 def _serialize_state(state_obj) -> dict:
-    if isinstance(state_obj, (list, tuple)):
-        raw = state_obj[0] if state_obj else {}
+    if hasattr(state_obj, "values") and isinstance(state_obj.values, dict):
+        raw = state_obj.values
+    elif isinstance(state_obj, (list, tuple)) and len(state_obj) > 0:
+        first = state_obj[0]
+        if hasattr(first, "values") and isinstance(first.values, dict):
+            raw = first.values
+        else:
+            raw = first
     else:
         raw = state_obj
     try:
         return json.loads(json.dumps(raw, cls=CustomEncoder, default=str))
     except Exception:
         return {}
+
 
 
 
@@ -154,12 +168,26 @@ async def health_check():
 @app.get("/ready", tags=["Diagnostics"])
 async def readiness_check():
     """Readiness probe."""
-    if app.state.graph is None and not os.getenv("GROQ_API_KEY") and not os.getenv("OPENAI_API_KEY") and not os.getenv("GEMINI_API_KEY"):
+    active_prov = (app.state.llm_config.get("provider") or os.getenv("LLM_PROVIDER", "")).strip().lower()
+    is_ollama = active_prov in ("ollama", "chatollama")
+    has_key = bool(os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("GEMINI_API_KEY"))
+    if app.state.graph is None and not has_key and not is_ollama:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"status": "not_ready", "reason": "LLM not yet configured."}
         )
     return {"status": "ready"}
+
+@app.get("/health/llm", tags=["Diagnostics"])
+async def llm_health_check():
+    """Diagnostic check on the active LLM provider."""
+    prov_name = app.state.llm_config.get("provider", os.getenv("LLM_PROVIDER", "groq"))
+    model_name = app.state.llm_config.get("model")
+    try:
+        prov = get_llm_provider(prov_name, model_name=model_name)
+        return prov.check_health()
+    except Exception as e:
+        return {"status": "error", "provider": prov_name, "error": str(e)}
 
 # ── LLM Configuration Endpoints ───────────────────────────────────────────────
 @app.post("/config/llm", tags=["Configuration"])
@@ -171,15 +199,23 @@ async def configure_llm(request: LLMConfigRequest):
             api_key=request.api_key,
             model_name=request.model
         )
+        if request.provider.strip().lower() in ("ollama", "chatollama"):
+            health = prov.check_health()
+            if not health.get("server_running", False):
+                raise ValueError("Local Ollama server is not running. Please start Ollama and try again.")
+            if not health.get("model_available", False):
+                raise ValueError(health.get("error", f"Model '{prov.model_name}' is not installed in Ollama. Please run 'ollama pull {prov.model_name}'."))
+
         llm = prov.get_llm()
         graph = _rebuild_graph(llm)
 
         app.state.llm = llm
         app.state.graph = graph
+        is_local = request.provider.strip().lower() in ("ollama", "chatollama")
         app.state.llm_config = {
             "provider": request.provider,
             "model": request.model or prov.model_name,
-            "api_key": "***" if (request.api_key or prov.api_key) else "",
+            "api_key": "N/A (Local)" if is_local else ("***" if (request.api_key or getattr(prov, "api_key", None)) else ""),
         }
         logger.info(f"LLM successfully reconfigured to: {request.provider} ({request.model or prov.model_name})")
         return {

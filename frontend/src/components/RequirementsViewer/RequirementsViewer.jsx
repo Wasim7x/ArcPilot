@@ -1,15 +1,16 @@
 import React from 'react';
+import { safeText, safeList } from '../../utils/formatUtils';
 
 export default function RequirementsViewer({ structured, legacyList }) {
   if (structured && typeof structured === 'object') {
-    const frs = Array.isArray(structured.functional_requirements) ? structured.functional_requirements : [];
-    const nfrs = Array.isArray(structured.non_functional_requirements) ? structured.non_functional_requirements : [];
-    const integrations = Array.isArray(structured.external_integrations) ? structured.external_integrations : [];
-    const roles = Array.isArray(structured.user_roles) ? structured.user_roles : [];
-    const summary = structured.summary || '';
+    const frs = safeList(structured.functional_requirements);
+    const nfrs = safeList(structured.non_functional_requirements);
+    const integrations = safeList(structured.external_integrations);
+    const roles = safeList(structured.user_roles);
+    const summary = safeText(structured.summary);
 
     return (
-      <div className="reqs-scroll-container" id="requirements-viewer">
+      <div className="reqs-view-container" id="requirements-viewer">
         {summary && (
           <div className="summary-card">
             <div className="section-label">Executive Summary</div>
@@ -21,29 +22,37 @@ export default function RequirementsViewer({ structured, legacyList }) {
           <div className="req-group">
             <div className="section-heading">Functional Requirements ({frs.length})</div>
             <div className="req-items-list">
-              {frs.map((f, idx) => (
-                <div key={f.id || idx} className="req-card">
-                  <div className="req-header">
-                    <span className="badge badge-blue">{f.id || `FR-${idx + 1}`}</span>
-                    <span className="req-title">{f.title || 'Functional Requirement'}</span>
-                    {f.priority && <span className="badge badge-yellow">{f.priority}</span>}
-                  </div>
-                  <div className="req-desc">{f.description}</div>
-                  {Array.isArray(f.acceptance_criteria) && f.acceptance_criteria.length > 0 && (
-                    <div className="sub-criteria">
-                      <div className="sub-criteria-heading">Acceptance Criteria:</div>
-                      <ul className="sub-criteria-list">
-                        {f.acceptance_criteria.map((c, cIdx) => (
-                          <li key={cIdx} className="sub-criteria-item">
-                            <span className="sub-criteria-check">✓</span>
-                            <span>{c}</span>
-                          </li>
-                        ))}
-                      </ul>
+              {frs.map((f, idx) => {
+                const fid = safeText(f.id, `FR-${idx + 1}`);
+                const ftitle = safeText(f.title, 'Functional Requirement');
+                const fpriority = safeText(f.priority, 'High');
+                const fdesc = safeText(f.description);
+                const criteria = safeList(f.acceptance_criteria);
+
+                return (
+                  <div key={fid || idx} className="req-card">
+                    <div className="req-header">
+                      <span className="badge badge-blue">{fid}</span>
+                      <span className="req-title">{ftitle}</span>
+                      <span className="badge badge-yellow">{fpriority}</span>
                     </div>
-                  )}
-                </div>
-              ))}
+                    {fdesc && <div className="req-desc">{fdesc}</div>}
+                    {criteria.length > 0 && (
+                      <div className="sub-criteria">
+                        <div className="sub-criteria-heading">Acceptance Criteria:</div>
+                        <ul className="sub-criteria-list">
+                          {criteria.map((c, cIdx) => (
+                            <li key={cIdx} className="sub-criteria-item">
+                              <span className="sub-criteria-check">✓</span>
+                              <span>{safeText(c)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -52,16 +61,23 @@ export default function RequirementsViewer({ structured, legacyList }) {
           <div className="req-group">
             <div className="section-heading">Non-Functional Requirements ({nfrs.length})</div>
             <div className="req-items-list">
-              {nfrs.map((n, idx) => (
-                <div key={n.id || idx} className="req-card">
-                  <div className="req-header">
-                    <span className="badge badge-yellow">{n.id || `NFR-${idx + 1}`}</span>
-                    <span className="req-title">{n.category || 'Quality Attribute'}</span>
-                    {n.metric_target && <span className="badge badge-green">{n.metric_target}</span>}
+              {nfrs.map((n, idx) => {
+                const nid = safeText(n.id, `NFR-${idx + 1}`);
+                const ncat = safeText(n.category, 'Quality Attribute');
+                const ntarget = safeText(n.metric_target);
+                const ndesc = safeText(n.description);
+
+                return (
+                  <div key={nid || idx} className="req-card">
+                    <div className="req-header">
+                      <span className="badge badge-yellow">{nid}</span>
+                      <span className="req-title">{ncat}</span>
+                      {ntarget && <span className="badge badge-green">{ntarget}</span>}
+                    </div>
+                    {ndesc && <div className="req-desc">{ndesc}</div>}
                   </div>
-                  <div className="req-desc">{n.description}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -70,23 +86,30 @@ export default function RequirementsViewer({ structured, legacyList }) {
           <div className="req-group">
             <div className="section-heading">External Integrations ({integrations.length})</div>
             <div className="req-items-list">
-              {integrations.map((ext, idx) => (
-                <div key={ext.name || idx} className="req-card">
-                  <div className="req-header">
-                    <span className="req-title" style={{ fontWeight: 700 }}>{ext.name}</span>
-                    <span className="badge badge-blue">{ext.api_type || 'REST'}</span>
-                  </div>
-                  <div className="req-desc">{ext.purpose}</div>
-                  {Array.isArray(ext.env_var_keys) && ext.env_var_keys.length > 0 && (
-                    <div className="env-keys-box">
-                      <span className="env-label">Env Keys:</span>{' '}
-                      {ext.env_var_keys.map((k) => (
-                        <code key={k} className="env-key-tag">{k}</code>
-                      ))}
+              {integrations.map((ext, idx) => {
+                const ename = safeText(ext.name, `Integration ${idx + 1}`);
+                const etype = safeText(ext.api_type, 'REST');
+                const epurpose = safeText(ext.purpose);
+                const envKeys = safeList(ext.env_var_keys);
+
+                return (
+                  <div key={ename || idx} className="req-card">
+                    <div className="req-header">
+                      <span className="req-title" style={{ fontWeight: 700 }}>{ename}</span>
+                      <span className="badge badge-blue">{etype}</span>
                     </div>
-                  )}
-                </div>
-              ))}
+                    {epurpose && <div className="req-desc">{epurpose}</div>}
+                    {envKeys.length > 0 && (
+                      <div className="env-keys-box">
+                        <span className="env-label">Environment Keys:</span>{' '}
+                        {envKeys.map((k, kIdx) => (
+                          <code key={kIdx} className="env-key-tag">{safeText(k)}</code>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -95,36 +118,40 @@ export default function RequirementsViewer({ structured, legacyList }) {
           <div className="req-group">
             <div className="section-heading">User Roles &amp; Permissions ({roles.length})</div>
             <div className="req-items-list">
-              {roles.map((r, idx) => (
-                <div key={r.role_name || idx} className="req-card">
-                  <div className="req-header">
-                    <span className="req-title" style={{ fontWeight: 700 }}>{r.role_name}</span>
-                  </div>
-                  <div className="req-desc">{r.description}</div>
-                  {Array.isArray(r.permissions) && r.permissions.length > 0 && (
-                    <div className="sub-criteria">
-                      <div className="sub-criteria-heading">Permissions:</div>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
-                        {r.permissions.map((p, pIdx) => (
-                          <span key={pIdx} className="badge badge-blue">{p}</span>
-                        ))}
-                      </div>
+              {roles.map((r, idx) => {
+                const rname = safeText(r.role_name, `Role ${idx + 1}`);
+                const rdesc = safeText(r.description);
+                const perms = safeList(r.permissions);
+
+                return (
+                  <div key={rname || idx} className="req-card">
+                    <div className="req-header">
+                      <span className="req-title" style={{ fontWeight: 700 }}>{rname}</span>
                     </div>
-                  )}
-                </div>
-              ))}
+                    {rdesc && <div className="req-desc">{rdesc}</div>}
+                    {perms.length > 0 && (
+                      <div className="sub-criteria">
+                        <div className="sub-criteria-heading">Permissions:</div>
+                        <div className="perms-flow">
+                          {perms.map((p, pIdx) => (
+                            <span key={pIdx} className="badge badge-blue">{safeText(p)}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
         <style>{`
-          .reqs-scroll-container {
+          .reqs-view-container {
             display: flex;
             flex-direction: column;
             gap: 16px;
-            overflow-y: auto;
-            max-height: calc(100vh - 280px);
-            padding-right: 6px;
+            width: 100%;
           }
           .summary-card {
             background: var(--bg3);
@@ -201,18 +228,19 @@ export default function RequirementsViewer({ structured, legacyList }) {
             list-style: none;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 3px;
           }
           .sub-criteria-item {
-            font-size: 11px;
+            font-size: 11.5px;
             color: var(--ink2);
             display: flex;
-            align-items: flex-start;
+            align-items: baseline;
             gap: 6px;
           }
           .sub-criteria-check {
             color: var(--green);
-            font-weight: 700;
+            font-size: 11px;
+            font-weight: bold;
           }
           .env-keys-box {
             margin-top: 6px;
@@ -223,23 +251,36 @@ export default function RequirementsViewer({ structured, legacyList }) {
             flex-wrap: wrap;
             gap: 6px;
           }
+          .env-label {
+            font-size: 10px;
+            color: var(--ink3);
+            text-transform: uppercase;
+            font-weight: 600;
+          }
           .env-key-tag {
             background: var(--bg4);
             padding: 2px 6px;
             border-radius: 4px;
             color: var(--accent-light);
             font-family: var(--mono);
+            font-size: 11px;
+          }
+          .perms-flow {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
           }
         `}</style>
       </div>
     );
   }
 
-  if (Array.isArray(legacyList) && legacyList.length > 0) {
+  const legacy = safeList(legacyList);
+  if (legacy.length > 0) {
     return (
-      <div className="legacy-reqs-list reqs-scroll-container">
-        {legacyList.map((r, i) => (
-          <div key={i} className="legacy-item">• {r}</div>
+      <div className="legacy-reqs-list">
+        {legacy.map((r, i) => (
+          <div key={i} className="legacy-item">• {safeText(r)}</div>
         ))}
         <style>{`
           .legacy-reqs-list {
@@ -250,8 +291,7 @@ export default function RequirementsViewer({ structured, legacyList }) {
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
             padding: 14px;
-            overflow-y: auto;
-            max-height: calc(100vh - 280px);
+            width: 100%;
           }
           .legacy-item {
             font-size: 12px;

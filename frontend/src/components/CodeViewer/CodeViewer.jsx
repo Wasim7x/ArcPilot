@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { safeText } from '../../utils/formatUtils';
 
 export default function CodeViewer({ generatedFiles, staticAnalysis, comments }) {
   const [selectedFile, setSelectedFile] = useState('');
@@ -21,8 +22,10 @@ export default function CodeViewer({ generatedFiles, staticAnalysis, comments })
     );
   }
 
+  const reviewNotes = safeText(comments);
+
   return (
-    <div className="code-viewer-container" id="code-viewer">
+    <div className="code-view-container" id="code-viewer">
       {staticAnalysis && (
         <div className="metrics-row">
           <div className="metric-box">
@@ -70,25 +73,31 @@ export default function CodeViewer({ generatedFiles, staticAnalysis, comments })
       </div>
 
       {/* File Content Preview */}
-      <pre className="code-viewer-block">
-        {selectedFile ? files[selectedFile] : 'Select a file to inspect.'}
-      </pre>
+      <div className="code-file-container">
+        <div className="code-file-header">
+          <span className="code-file-name">{selectedFile}</span>
+          <span className="badge badge-blue">
+            {selectedFile ? `${safeText(files[selectedFile]).split('\n').length} lines` : ''}
+          </span>
+        </div>
+        <pre className="code-viewer-block">
+          {selectedFile ? safeText(files[selectedFile]) : 'Select a file to inspect.'}
+        </pre>
+      </div>
 
-      {comments && (
+      {reviewNotes && (
         <div className="review-notes-box">
           <div className="notes-heading">Automated Code Review Notes</div>
-          <pre className="code-viewer-block">{comments}</pre>
+          <pre className="code-viewer-block">{reviewNotes}</pre>
         </div>
       )}
 
       <style>{`
-        .code-viewer-container {
+        .code-view-container {
           display: flex;
           flex-direction: column;
           gap: 12px;
-          overflow-y: auto;
-          max-height: calc(100vh - 280px);
-          padding-right: 6px;
+          width: 100%;
         }
         .metrics-row {
           display: grid;
@@ -121,20 +130,20 @@ export default function CodeViewer({ generatedFiles, staticAnalysis, comments })
           padding-bottom: 4px;
         }
         .file-tab-btn {
-          padding: 5px 12px;
-          border-radius: 6px;
+          padding: 6px 12px;
+          border-radius: var(--radius-sm);
           background: var(--bg3);
           border: 1px solid var(--border);
           font-family: var(--mono);
-          font-size: 11px;
-          color: var(--ink3);
+          font-size: 11.5px;
+          color: var(--ink2);
           cursor: pointer;
           white-space: nowrap;
           transition: all 0.15s;
         }
         .file-tab-btn:hover {
           color: var(--ink);
-          background: var(--bg4);
+          border-color: var(--border2);
         }
         .file-tab-btn.active {
           background: var(--bg4);
@@ -142,29 +151,49 @@ export default function CodeViewer({ generatedFiles, staticAnalysis, comments })
           color: var(--accent2);
           font-weight: 600;
         }
-        .code-viewer-block {
-          font-family: var(--mono);
-          font-size: 11.5px;
-          line-height: 1.65;
-          color: var(--ink);
+        .code-file-container {
           background: var(--bg3);
           border: 1px solid var(--border);
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-md);
+          overflow: hidden;
+        }
+        .code-file-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 14px;
+          background: var(--bg4);
+          border-bottom: 1px solid var(--border);
+        }
+        .code-file-name {
+          font-family: var(--mono);
+          font-size: 12px;
+          color: var(--ink);
+          font-weight: 600;
+        }
+        .code-viewer-block {
+          font-family: var(--mono);
+          font-size: 12px;
+          line-height: 1.65;
+          color: var(--ink);
           padding: 16px;
-          white-space: pre-wrap;
-          word-break: break-word;
+          white-space: pre;
           overflow-x: auto;
+          margin: 0;
         }
         .review-notes-box {
-          margin-top: 6px;
+          background: var(--bg3);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-md);
+          padding: 14px;
         }
         .notes-heading {
-          font-size: 11.5px;
+          font-size: 11px;
           font-weight: 700;
-          color: var(--ink3);
+          color: var(--yellow);
           text-transform: uppercase;
           letter-spacing: 0.8px;
-          margin-bottom: 6px;
+          margin-bottom: 8px;
         }
         .empty-panel-state {
           display: flex;

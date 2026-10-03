@@ -78,7 +78,7 @@ ArcPilot leverages **LangGraph** for deterministic workflow state orchestration,
 
 ## ⚡ Core Features
 
-- **Multi-LLM Provider Support**: Unified abstraction supporting **Groq**, **OpenAI**, and **Google Gemini** with environment variable fallbacks and runtime hot-swapping.
+- **Multi-LLM Provider Support**: Unified abstraction supporting **Ollama** (Local Qwen, Llama, etc.), **Groq**, **OpenAI**, and **Google Gemini** with environment variable fallbacks and runtime hot-swapping.
 - **Structured Requirements**: Transforms unconstrained natural language into structured Pydantic specifications (Functional, Non-Functional, External Integrations, User Roles, Constraints, and Acceptance Criteria).
 - **Multi-File Project Generator**: Generates full, production-ready project hierarchies (FastAPI backend, models, resilient API clients with offline mock fallbacks, unit & API tests, Dockerfile, docker-compose, and documentation).
 - **Real Static Code Analysis**: AST-level syntax and structural analysis coupled with automated Ruff linter execution.
@@ -127,13 +127,16 @@ cp .env.example .env
 
 Configure your LLM provider credentials in `.env`:
 
-```env
-# Choose provider: "groq", "openai", "gemini", or "mock"
-LLM_PROVIDER=groq
-LLM_MODEL=llama-3.3-70b-versatile
+# Choose provider: "ollama", "groq", "openai", "gemini", or "mock"
+LLM_PROVIDER=ollama
+LLM_MODEL=qwen3.8:27b
 
-# Set your API key
-GROQ_API_KEY=gsk_your_groq_api_key_here
+# Local Ollama Configuration
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=qwen3.8:27b
+
+# Cloud API Keys (optional if using local Ollama)
+# GROQ_API_KEY=gsk_your_groq_api_key_here
 # OPENAI_API_KEY=sk-your_openai_api_key_here
 # GEMINI_API_KEY=AIza_your_gemini_api_key_here
 
@@ -146,6 +149,27 @@ MAX_REPAIR_ATTEMPTS=3
 TEST_TIMEOUT=45
 PORT=8000
 ```
+
+#### Running with Local Ollama:
+1. Install Ollama from [ollama.com](https://ollama.com).
+2. Start Ollama:
+   ```bash
+   ollama serve
+   ```
+3. Pull the recommended model:
+   ```bash
+   ollama pull qwen3.8:27b
+   ```
+4. Set in `.env`:
+   ```env
+   LLM_PROVIDER=ollama
+   OLLAMA_BASE_URL=http://localhost:11434
+   OLLAMA_MODEL=qwen3.8:27b
+   ```
+5. Start ArcPilot.
+
+> **Hardware note**: Running a 27B parameter model locally requires sufficient system RAM/GPU resources (recommended: 8GB+ VRAM GPU and 32GB system RAM).
+
 
 ### 4. Running ArcPilot
 

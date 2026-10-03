@@ -1,8 +1,12 @@
 import React from 'react';
+import { safeText, safeList } from '../../utils/formatUtils';
 
 export default function QAViewer({ qaReport, testCases, repairAttempts }) {
+  const repairList = safeList(repairAttempts);
+  const tests = safeText(testCases, 'Test cases generation in progress…');
+
   return (
-    <div className="qa-viewer-container" id="qa-viewer">
+    <div className="qa-view-container" id="qa-viewer">
       {qaReport && (
         <div className="metrics-row">
           <div className="metric-box">
@@ -36,19 +40,20 @@ export default function QAViewer({ qaReport, testCases, repairAttempts }) {
         </div>
       )}
 
-      {Array.isArray(repairAttempts) && repairAttempts.length > 0 && (
+      {repairList.length > 0 && (
         <div className="repair-card">
           <div className="repair-title">
-            Automated Debug &amp; Repair History ({repairAttempts.length} Attempts)
+            Automated Debug &amp; Repair History ({repairList.length} Attempts)
           </div>
-          {repairAttempts.map((a, i) => (
-            <div key={i} className="repair-entry">
-              • Attempt #{a.attempt_number}: {a.changes_summary}{' '}
-              {Array.isArray(a.patched_files) && a.patched_files.length > 0
-                ? `(${a.patched_files.join(', ')})`
-                : ''}
-            </div>
-          ))}
+          {repairList.map((a, i) => {
+            const patched = safeList(a.patched_files);
+            return (
+              <div key={i} className="repair-entry">
+                • Attempt #{safeText(a.attempt_number, i + 1)}: {safeText(a.changes_summary)}{' '}
+                {patched.length > 0 ? `(${patched.map((p) => safeText(p)).join(', ')})` : ''}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -58,18 +63,16 @@ export default function QAViewer({ qaReport, testCases, repairAttempts }) {
           <span className="badge badge-blue">Pytest Suite</span>
         </div>
         <pre className="code-viewer-block">
-          {testCases || 'Test cases generation in progress…'}
+          {tests}
         </pre>
       </div>
 
       <style>{`
-        .qa-viewer-container {
+        .qa-view-container {
           display: flex;
           flex-direction: column;
           gap: 14px;
-          overflow-y: auto;
-          max-height: calc(100vh - 280px);
-          padding-right: 6px;
+          width: 100%;
         }
         .metrics-row {
           display: grid;
@@ -113,7 +116,6 @@ export default function QAViewer({ qaReport, testCases, repairAttempts }) {
           font-size: 11.5px;
           color: var(--ink2);
           margin-top: 4px;
-          line-height: 1.5;
         }
         .doc-section {
           display: flex;
@@ -144,6 +146,7 @@ export default function QAViewer({ qaReport, testCases, repairAttempts }) {
           white-space: pre-wrap;
           word-break: break-word;
           overflow-x: auto;
+          margin: 0;
         }
       `}</style>
     </div>

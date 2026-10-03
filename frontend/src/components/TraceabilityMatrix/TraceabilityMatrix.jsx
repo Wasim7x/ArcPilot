@@ -1,7 +1,10 @@
 import React from 'react';
+import { safeText, safeList } from '../../utils/formatUtils';
 
 export default function TraceabilityMatrix({ matrix = [] }) {
-  if (!Array.isArray(matrix) || matrix.length === 0) {
+  const matrixList = safeList(matrix);
+
+  if (matrixList.length === 0) {
     return (
       <div className="empty-matrix-state">
         <span className="empty-matrix-icon">🔗</span>
@@ -18,14 +21,14 @@ export default function TraceabilityMatrix({ matrix = [] }) {
   };
 
   return (
-    <div className="traceability-container" id="traceability-matrix-viewer">
+    <div className="traceability-container" id="traceability-matrix">
       <div className="traceability-meta">
         <div className="meta-left">
           <span className="meta-title">Traceability &amp; Verification Matrix</span>
-          <span className="badge badge-blue">{matrix.length} Mapped Links</span>
+          <span className="badge badge-blue">{matrixList.length} Mapped Links</span>
         </div>
         <div className="meta-hint">
-          Scroll horizontally for extended columns or vertically to view all requirement mappings.
+          Scroll horizontally for extended columns or vertically to inspect all mapped lifecycle artifacts.
         </div>
       </div>
 
@@ -33,23 +36,23 @@ export default function TraceabilityMatrix({ matrix = [] }) {
         <table className="matrix-table">
           <thead>
             <tr>
-              <th style={{ minWidth: '190px' }}>Requirement</th>
-              <th style={{ minWidth: '140px' }}>User Stories</th>
-              <th style={{ minWidth: '150px' }}>Design Sections</th>
-              <th style={{ minWidth: '160px' }}>Code Files</th>
-              <th style={{ minWidth: '140px' }}>Test Cases</th>
-              <th style={{ minWidth: '110px', textAlign: 'center' }}>Status</th>
+              <th style={{ minWidth: '180px' }}>Requirement</th>
+              <th style={{ minWidth: '130px' }}>User Stories</th>
+              <th style={{ minWidth: '160px' }}>Design Sections</th>
+              <th style={{ minWidth: '180px' }}>Code Files</th>
+              <th style={{ minWidth: '130px' }}>Test Cases</th>
+              <th style={{ minWidth: '100px', textAlign: 'center' }}>Status</th>
             </tr>
           </thead>
           <tbody>
-            {matrix.map((row, idx) => {
-              const reqId = row.requirement_id || `REQ-${idx + 1}`;
-              const reqTitle = row.requirement_title || '';
-              const userStories = Array.isArray(row.user_story_ids) ? row.user_story_ids : [];
-              const designSecs = Array.isArray(row.design_sections) ? row.design_sections : [];
-              const codeFiles = Array.isArray(row.code_files) ? row.code_files : [];
-              const testCases = Array.isArray(row.test_case_ids) ? row.test_case_ids : [];
-              const testStatus = row.test_status || 'PENDING';
+            {matrixList.map((row, idx) => {
+              const reqId = safeText(row.requirement_id, `REQ-${idx + 1}`);
+              const reqTitle = safeText(row.requirement_title);
+              const userStories = safeList(row.user_story_ids);
+              const designSecs = safeList(row.design_sections);
+              const codeFiles = safeList(row.code_files);
+              const testCases = safeList(row.test_case_ids);
+              const testStatus = safeText(row.test_status, 'PENDING');
 
               return (
                 <tr key={`${reqId}-${idx}`}>
@@ -62,8 +65,8 @@ export default function TraceabilityMatrix({ matrix = [] }) {
                   <td>
                     <div className="badge-flow">
                       {userStories.length > 0 ? (
-                        userStories.map((u) => (
-                          <span key={u} className="badge badge-blue">{u}</span>
+                        userStories.map((u, uIdx) => (
+                          <span key={uIdx} className="badge badge-blue">{safeText(u)}</span>
                         ))
                       ) : (
                         <span className="cell-muted">—</span>
@@ -73,8 +76,10 @@ export default function TraceabilityMatrix({ matrix = [] }) {
                   <td>
                     <div className="badge-flow">
                       {designSecs.length > 0 ? (
-                        designSecs.map((d) => (
-                          <span key={d} className="badge badge-yellow">{d}</span>
+                        designSecs.map((d, dIdx) => (
+                          <span key={dIdx} className="badge badge-yellow" title={safeText(d)}>
+                            {safeText(d)}
+                          </span>
                         ))
                       ) : (
                         <span className="cell-muted">—</span>
@@ -84,8 +89,10 @@ export default function TraceabilityMatrix({ matrix = [] }) {
                   <td>
                     <div className="badge-flow">
                       {codeFiles.length > 0 ? (
-                        codeFiles.slice(0, 4).map((c) => (
-                          <span key={c} className="badge badge-green" title={c}>{c}</span>
+                        codeFiles.map((c, cIdx) => (
+                          <span key={cIdx} className="badge badge-green" title={safeText(c)}>
+                            {safeText(c)}
+                          </span>
                         ))
                       ) : (
                         <span className="cell-muted">—</span>
@@ -95,8 +102,8 @@ export default function TraceabilityMatrix({ matrix = [] }) {
                   <td>
                     <div className="badge-flow">
                       {testCases.length > 0 ? (
-                        testCases.map((t) => (
-                          <span key={t} className="badge badge-blue">{t}</span>
+                        testCases.map((t, tIdx) => (
+                          <span key={tIdx} className="badge badge-blue">{safeText(t)}</span>
                         ))
                       ) : (
                         <span className="cell-muted">—</span>
@@ -104,9 +111,7 @@ export default function TraceabilityMatrix({ matrix = [] }) {
                     </div>
                   </td>
                   <td style={{ textAlign: 'center' }}>
-                    <span className={getStatusBadge(testStatus)}>
-                      {testStatus}
-                    </span>
+                    <span className={getStatusBadge(testStatus)}>{testStatus}</span>
                   </td>
                 </tr>
               );
@@ -119,7 +124,7 @@ export default function TraceabilityMatrix({ matrix = [] }) {
         .traceability-container {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 12px;
           width: 100%;
         }
         .traceability-meta {
@@ -128,7 +133,7 @@ export default function TraceabilityMatrix({ matrix = [] }) {
           align-items: center;
           flex-wrap: wrap;
           gap: 8px;
-          padding: 4px 2px;
+          padding: 2px 0;
         }
         .meta-left {
           display: flex;
@@ -147,14 +152,14 @@ export default function TraceabilityMatrix({ matrix = [] }) {
         .matrix-scroll-wrapper {
           width: 100%;
           overflow-x: auto;
-          overflow-y: auto;
-          max-height: calc(100vh - 300px);
+          overflow-y: visible;
           background: var(--bg3);
           border: 1px solid var(--border);
           border-radius: var(--radius-md);
           box-shadow: var(--shadow-sm);
         }
         .matrix-table {
+          min-width: 900px;
           width: 100%;
           border-collapse: collapse;
           font-size: 12px;

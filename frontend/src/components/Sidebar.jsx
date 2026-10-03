@@ -100,12 +100,13 @@ export default function Sidebar({
           </div>
 
           <div className="fld">
-            <label>API Key</label>
+            <label>API Key {provider === 'Ollama' && <span style={{ opacity: 0.6, fontSize: '0.85em' }}>(Not required for local)</span>}</label>
             <input
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter API key…"
+              placeholder={provider === 'Ollama' ? 'Not required for local Ollama' : 'Enter API key…'}
+              disabled={provider === 'Ollama'}
             />
           </div>
 

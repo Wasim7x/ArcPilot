@@ -69,14 +69,19 @@ export default function Orchestrator({
         .main-workspace {
           grid-column: 2;
           grid-row: 2;
-          overflow-y: auto;
           min-height: 0;
           height: 100%;
-          padding: 20px 24px;
+          padding: 16px 20px;
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 14px;
           background: var(--bg);
+          overflow: hidden;
+        }
+        @media (max-height: 680px) {
+          .main-workspace {
+            overflow-y: auto;
+          }
         }
       `}</style>
     </main>

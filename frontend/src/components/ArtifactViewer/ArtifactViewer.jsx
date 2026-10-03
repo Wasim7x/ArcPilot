@@ -62,6 +62,10 @@ export default function ArtifactViewer({
         </div>
         <style>{`
           .content-inspector {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
             background: var(--bg2);
             border: 1px solid var(--border);
             border-radius: var(--radius-lg);
@@ -74,6 +78,7 @@ export default function ArtifactViewer({
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             gap: 12px;
           }
           .empty-insp-icon {
@@ -180,6 +185,10 @@ export default function ArtifactViewer({
 
       <style>{`
         .content-inspector {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
           background: var(--bg2);
           border: 1px solid var(--border);
           border-radius: var(--radius-lg);
@@ -187,6 +196,10 @@ export default function ArtifactViewer({
           box-shadow: var(--shadow-md);
         }
         .inspector-body {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
           padding: 20px;
         }
       `}</style>

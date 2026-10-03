@@ -82,6 +82,12 @@ html, body {
   overflow: hidden;
 }
 
+.sb-left, .main-workspace, .sb-right {
+  min-height: 0;
+  height: 100%;
+}
+
+
 @media (max-width: 1180px) {
   .app-container {
     grid-template-columns: 250px 1fr 270px;

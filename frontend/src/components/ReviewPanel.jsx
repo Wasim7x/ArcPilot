@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { HUMAN_REVIEW_META } from '../types/workflow';
 
 export default function ReviewPanel({
@@ -20,33 +20,63 @@ export default function ReviewPanel({
     feedbackPlaceholder: 'Enter feedback or requested revisions...',
   };
 
-  const [decision, setDecision] = useState('approve'); // Default to 'approve'
+  const [isRejecting, setIsRejecting] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [clientValidationError, setClientValidationError] = useState('');
 
-  // Reset decision and feedback when stage changes
+  // Track previous submission state to automatically exit feedback mode upon successful revision
+  const prevSubmittingRef = useRef(isSubmitting);
+
+  // Reset decision and feedback when stageKey changes
   useEffect(() => {
-    setDecision('approve');
+    setIsRejecting(false);
     setFeedback('');
     setClientValidationError('');
   }, [stageKey]);
 
-  const handleSelectDecision = (val) => {
-    setDecision(val);
+  // When submission completes successfully (was submitting, now not, no error), return to default view
+  useEffect(() => {
+    if (prevSubmittingRef.current && !isSubmitting && !error) {
+      setIsRejecting(false);
+      setFeedback('');
+      setClientValidationError('');
+    }
+    prevSubmittingRef.current = isSubmitting;
+  }, [isSubmitting, error]);
+
+  const handleApprove = (e) => {
+    e?.preventDefault();
+    if (isSubmitting) return;
+
+    setClientValidationError('');
+    if (onClearError) onClearError();
+
+    onSubmitReview({
+      stage: stageKey,
+      decision: 'approve',
+      feedback: '',
+    });
+  };
+
+  const handleStartReject = () => {
+    if (isSubmitting) return;
+    setIsRejecting(true);
     setClientValidationError('');
     if (onClearError) onClearError();
   };
 
-  const handleSubmit = (e) => {
+  const handleCancelReject = () => {
+    if (isSubmitting) return;
+    setIsRejecting(false);
+    setClientValidationError('');
+    if (onClearError) onClearError();
+  };
+
+  const handleSubmitFeedback = (e) => {
     e?.preventDefault();
     if (isSubmitting) return;
 
-    if (!decision) {
-      setClientValidationError('Please select either "Approve & Continue" or "Reject / Request Changes".');
-      return;
-    }
-
-    if (decision === 'request_changes' && !feedback.trim()) {
+    if (!feedback.trim()) {
       setClientValidationError('Feedback comments are required when requesting revisions so the AI agent knows what to fix.');
       return;
     }
@@ -54,13 +84,10 @@ export default function ReviewPanel({
     setClientValidationError('');
     onSubmitReview({
       stage: stageKey,
-      decision,
+      decision: 'request_changes',
       feedback: feedback.trim(),
     });
   };
-
-  const isApproved = decision === 'approve';
-  const isRejected = decision === 'request_changes';
 
   return (
     <div className="review-panel" id="review-panel">
@@ -94,7 +121,7 @@ export default function ReviewPanel({
               <button
                 type="button"
                 className="banner-retry-btn"
-                onClick={handleSubmit}
+                onClick={isRejecting ? handleSubmitFeedback : handleApprove}
                 disabled={isSubmitting}
               >
                 Retry
@@ -103,151 +130,168 @@ export default function ReviewPanel({
           </div>
         )}
 
-        {/* Decision Toggle Cards */}
-        <div className="decision-group">
-          <button
-            type="button"
-            className={`decision-btn decision-btn-approve ${isApproved ? 'selected' : ''}`}
-            onClick={() => handleSelectDecision('approve')}
-            disabled={isSubmitting}
-            id="btn-select-approve"
-          >
-            <div className="dec-icon-box">✓</div>
-            <div className="dec-txt-box">
-              <div className="dec-title">{meta.approveLabel || 'Approve & Continue'}</div>
-              <div className="dec-sub">Accept artifacts and advance to {meta.nextStageLabel}</div>
-            </div>
-            {isApproved && <div className="dec-check-mark">SELECTED</div>}
-          </button>
+        {/* BEFORE REJECT: Show [ Approve & Continue ] and [ Reject / Request Changes ] side-by-side */}
+        {!isRejecting ? (
+          <div className="rp-initial-actions">
+            <button
+              type="button"
+              className="btn-review-card btn-action-approve"
+              onClick={handleApprove}
+              disabled={isSubmitting}
+              id="btn-select-approve"
+            >
+              {isSubmitting ? (
+                <div className="btn-loading-state">
+                  <span className="spin" />
+                  <span className="btn-main-title">Submitting approval…</span>
+                </div>
+              ) : (
+                <>
+                  <div className="btn-icon-box">✓</div>
+                  <div className="btn-text-wrap">
+                    <div className="btn-main-title">{meta.approveLabel || 'Approve & Continue'}</div>
+                    <div className="btn-sub-title">Accept artifacts and advance to {meta.nextStageLabel || 'next stage'}</div>
+                  </div>
+                </>
+              )}
+            </button>
 
-          <button
-            type="button"
-            className={`decision-btn decision-btn-reject ${isRejected ? 'selected' : ''}`}
-            onClick={() => handleSelectDecision('request_changes')}
-            disabled={isSubmitting}
-            id="btn-select-reject"
-          >
-            <div className="dec-icon-box">✎</div>
-            <div className="dec-txt-box">
-              <div className="dec-title">{meta.rejectLabel || 'Reject / Request Changes'}</div>
-              <div className="dec-sub">Provide feedback to trigger regeneration</div>
-            </div>
-            {isRejected && <div className="dec-check-mark">SELECTED</div>}
-          </button>
-        </div>
-
-        {/* Controlled Feedback Textarea */}
-        <div className="feedback-box">
-          <div className="feedback-label">
-            <label htmlFor="review-feedback-textarea">
-              Review Feedback &amp; Revision Notes
-            </label>
-            <span className={`feedback-hint ${isRejected ? 'required-hint' : ''}`}>
-              {isRejected ? '(Required for revisions)' : '(Optional feedback)'}
-            </span>
+            <button
+              type="button"
+              className="btn-review-card btn-action-reject"
+              onClick={handleStartReject}
+              disabled={isSubmitting}
+              id="btn-select-reject"
+            >
+              <div className="btn-icon-box">✎</div>
+              <div className="btn-text-wrap">
+                <div className="btn-main-title">{meta.rejectLabel || 'Reject / Request Changes'}</div>
+                <div className="btn-sub-title">Provide feedback to trigger artifact revision</div>
+              </div>
+            </button>
           </div>
-          <textarea
-            id="review-feedback-textarea"
-            className={`feedback-ta ${isRejected && !feedback.trim() && clientValidationError ? 'has-error' : ''}`}
-            value={feedback}
-            onChange={(e) => {
-              setFeedback(e.target.value);
-              if (clientValidationError) setClientValidationError('');
-            }}
-            placeholder={meta.feedbackPlaceholder}
-            disabled={isSubmitting}
-            rows={5}
-          />
-        </div>
+        ) : (
+          /* AFTER REJECT: Show Review Feedback textarea + [ Submit Feedback ] + [ Cancel ] */
+          <div className="rp-feedback-view" id="feedback-form-container">
+            <div className="feedback-view-header">
+              <label htmlFor="review-feedback-textarea" className="feedback-view-title">
+                Review Feedback &amp; Revision Notes <span className="required-tag">(Required)</span>
+              </label>
+              <div className="feedback-view-sub">
+                Describe the specific changes or additions needed. The AI agent will revise the current stage artifacts.
+              </div>
+            </div>
 
-        {/* Action Button Bar with Explicit Submit Review Button */}
-        <div className="rp-actions">
-          <button
-            type="button"
-            className={`btn-submit-decision ${isApproved ? 'btn-submit-approve' : 'btn-submit-reject'}`}
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            id="btn-submit-review"
-          >
-            {isSubmitting ? (
-              <>
-                <span className="spin" />
-                <span>Submitting review to LangGraph…</span>
-              </>
-            ) : isApproved ? (
-              <>
-                <span>✓ Submit Approval &amp; Continue →</span>
-              </>
-            ) : (
-              <>
-                <span>✎ Submit Feedback &amp; Regenerate →</span>
-              </>
-            )}
-          </button>
-        </div>
+            <textarea
+              id="review-feedback-textarea"
+              className={`feedback-ta ${clientValidationError && !feedback.trim() ? 'has-error' : ''}`}
+              value={feedback}
+              onChange={(e) => {
+                setFeedback(e.target.value);
+                if (clientValidationError) setClientValidationError('');
+              }}
+              placeholder={meta.feedbackPlaceholder || "Enter detailed feedback or requested revisions (e.g. 'Add user story for interactive budget calculator')..."}
+              disabled={isSubmitting}
+              rows={4}
+              autoFocus
+            />
+
+            <div className="feedback-actions-row">
+              <button
+                type="button"
+                className="btn btn-submit-feedback"
+                onClick={handleSubmitFeedback}
+                disabled={isSubmitting}
+                id="btn-submit-review"
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="spin" />
+                    <span>Submitting feedback &amp; generating revision…</span>
+                  </>
+                ) : (
+                  <>
+                    <span>✎ Submit Feedback</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-cancel-feedback"
+                onClick={handleCancelReject}
+                disabled={isSubmitting}
+              >
+                Cancel / Back
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <style>{`
         .review-panel {
           background: var(--bg2);
-          border: 2px solid rgba(99, 102, 241, 0.4);
+          border: 2px solid rgba(99, 102, 241, 0.45);
           border-radius: var(--radius-lg);
           overflow: hidden;
           box-shadow: var(--shadow-lg);
           animation: fadeIn 0.25s ease;
-          margin-bottom: 20px;
+          flex-shrink: 0;
         }
         .rp-header {
-          padding: 16px 20px;
-          background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(16, 185, 129, 0.08));
+          padding: 12px 18px;
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(16, 185, 129, 0.08));
           border-bottom: 1px solid var(--border2);
           display: flex;
           align-items: center;
-          gap: 14px;
+          gap: 12px;
         }
         .rp-icon {
-          width: 42px;
-          height: 42px;
-          border-radius: 12px;
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
           background: rgba(99, 102, 241, 0.25);
           border: 1px solid rgba(129, 140, 248, 0.4);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 22px;
+          font-size: 18px;
           flex-shrink: 0;
         }
         .rp-title-wrap {
           flex: 1;
         }
         .rp-title {
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 700;
           color: var(--ink);
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           flex-wrap: wrap;
         }
         .rp-status-tag {
-          font-size: 10px;
+          font-size: 9.5px;
           font-family: var(--mono);
-          padding: 3px 9px;
-          border-radius: 12px;
+          padding: 2px 8px;
+          border-radius: 10px;
           background: var(--yellow-bg);
           color: var(--yellow);
           border: 1px solid var(--yellow-border);
           text-transform: uppercase;
-          letter-spacing: 0.8px;
+          font-weight: 600;
         }
         .rp-desc {
-          font-size: 12px;
+          font-size: 11px;
           color: var(--ink2);
-          margin-top: 4px;
-          line-height: 1.5;
+          margin-top: 2px;
         }
         .rp-body {
-          padding: 20px;
+          padding: 14px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
         }
         .review-banner {
           display: flex;
@@ -256,156 +300,169 @@ export default function ReviewPanel({
           padding: 10px 14px;
           border-radius: var(--radius-sm);
           font-size: 12px;
-          margin-bottom: 16px;
-          animation: fadeIn 0.2s ease;
+          line-height: 1.4;
         }
         .review-banner-success {
           background: var(--green-bg);
-          color: var(--green-light);
           border: 1px solid var(--green-border);
+          color: var(--green-light);
         }
         .review-banner-error {
           background: var(--red-bg);
-          color: var(--red-light);
           border: 1px solid var(--red-border);
+          color: var(--red-light);
         }
         .banner-icon {
-          font-weight: 700;
-          font-size: 14px;
+          font-weight: bold;
+          flex-shrink: 0;
         }
         .banner-text {
           flex: 1;
         }
         .banner-retry-btn {
-          background: rgba(244, 63, 94, 0.2);
-          border: 1px solid var(--red-border);
-          color: var(--ink);
-          border-radius: 4px;
+          background: transparent;
+          border: 1px solid currentColor;
+          color: inherit;
           padding: 3px 8px;
-          font-size: 11px;
+          border-radius: 4px;
           cursor: pointer;
+          font-size: 10.5px;
           font-weight: 600;
         }
         .banner-retry-btn:hover {
-          background: rgba(244, 63, 94, 0.4);
+          background: rgba(255, 255, 255, 0.1);
         }
-        .decision-group {
+        .rp-initial-actions {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 14px;
-          margin-bottom: 18px;
+          gap: 12px;
         }
-        @media (max-width: 680px) {
-          .decision-group {
+        @media (max-width: 640px) {
+          .rp-initial-actions {
             grid-template-columns: 1fr;
           }
         }
-        .decision-btn {
-          padding: 16px;
-          border-radius: var(--radius-md);
-          background: var(--bg3);
-          border: 2px solid transparent;
-          cursor: pointer;
+        .btn-review-card {
           display: flex;
           align-items: center;
-          gap: 14px;
-          transition: all 0.2s;
-          font-family: var(--font);
-          position: relative;
-        }
-        .decision-btn:hover:not(:disabled) {
-          transform: translateY(-2px);
-        }
-        .decision-btn-approve {
-          border-color: rgba(16, 185, 129, 0.25);
-          color: var(--green);
-        }
-        .decision-btn-approve:hover:not(:disabled) {
-          background: rgba(16, 185, 129, 0.08);
-          border-color: var(--green);
-        }
-        .decision-btn-approve.selected {
-          background: rgba(16, 185, 129, 0.16);
-          border-color: var(--green);
-          box-shadow: 0 0 20px rgba(16, 185, 129, 0.25);
-        }
-        .decision-btn-reject {
-          border-color: rgba(244, 63, 94, 0.25);
-          color: var(--red);
-        }
-        .decision-btn-reject:hover:not(:disabled) {
-          background: rgba(244, 63, 94, 0.08);
-          border-color: var(--red);
-        }
-        .decision-btn-reject.selected {
-          background: rgba(244, 63, 94, 0.16);
-          border-color: var(--red);
-          box-shadow: 0 0 20px rgba(244, 63, 94, 0.25);
-        }
-        .dec-icon-box {
-          font-size: 22px;
-          line-height: 1;
-        }
-        .dec-txt-box {
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
+          gap: 12px;
+          padding: 12px 16px;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border);
+          cursor: pointer;
           text-align: left;
+          background: var(--bg3);
+          transition: all 0.18s ease;
         }
-        .dec-title {
+        .btn-action-approve {
+          border-color: rgba(16, 185, 129, 0.4);
+          background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), var(--bg3));
+        }
+        .btn-action-approve:hover:not(:disabled) {
+          border-color: var(--green);
+          background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), var(--bg3));
+          transform: translateY(-1px);
+          box-shadow: 0 4px 14px rgba(16, 185, 129, 0.2);
+        }
+        .btn-action-reject {
+          border-color: rgba(244, 63, 94, 0.35);
+          background: linear-gradient(135deg, rgba(244, 63, 94, 0.1), var(--bg3));
+        }
+        .btn-action-reject:hover:not(:disabled) {
+          border-color: var(--red);
+          background: linear-gradient(135deg, rgba(244, 63, 94, 0.2), var(--bg3));
+          transform: translateY(-1px);
+          box-shadow: 0 4px 14px rgba(244, 63, 94, 0.2);
+        }
+        .btn-review-card:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+        }
+        .btn-icon-box {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 15px;
+          font-weight: 700;
+          flex-shrink: 0;
+        }
+        .btn-action-approve .btn-icon-box {
+          background: rgba(16, 185, 129, 0.25);
+          color: var(--green-light);
+          border: 1px solid var(--green-border);
+        }
+        .btn-action-reject .btn-icon-box {
+          background: rgba(244, 63, 94, 0.2);
+          color: var(--red-light);
+          border: 1px solid var(--red-border);
+        }
+        .btn-text-wrap {
+          flex: 1;
+        }
+        .btn-main-title {
           font-size: 13.5px;
           font-weight: 700;
+          color: var(--ink);
         }
-        .dec-sub {
-          font-size: 11px;
-          opacity: 0.8;
-          font-weight: 400;
+        .btn-action-approve .btn-main-title {
+          color: #a7f3d0;
         }
-        .dec-check-mark {
-          margin-left: auto;
-          font-size: 9px;
-          font-family: var(--mono);
-          font-weight: 700;
-          letter-spacing: 0.8px;
-          padding: 2px 6px;
-          border-radius: 4px;
-          background: rgba(255, 255, 255, 0.1);
+        .btn-action-reject .btn-main-title {
+          color: #fecdd3;
         }
-        .feedback-box {
-          margin-bottom: 18px;
-        }
-        .feedback-label {
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--ink2);
-          margin-bottom: 7px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        .feedback-hint {
+        .btn-sub-title {
           font-size: 11px;
           color: var(--ink3);
-          font-weight: 400;
+          margin-top: 2px;
         }
-        .feedback-hint.required-hint {
-          color: var(--yellow);
-          font-weight: 600;
+        .btn-loading-state {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 4px;
+        }
+        .rp-feedback-view {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          animation: fadeIn 0.2s ease;
+        }
+        .feedback-view-header {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .feedback-view-title {
+          font-size: 12.5px;
+          font-weight: 700;
+          color: var(--ink);
+        }
+        .required-tag {
+          color: var(--red);
+          font-size: 11px;
+          font-weight: 500;
+        }
+        .feedback-view-sub {
+          font-size: 11px;
+          color: var(--ink3);
         }
         .feedback-ta {
           width: 100%;
-          min-height: 140px;
-          max-height: 260px;
+          min-height: 110px;
+          max-height: 220px;
           background: var(--bg3);
           border: 1px solid var(--border2);
           color: var(--ink);
           border-radius: var(--radius-sm);
-          padding: 12px 14px;
+          padding: 10px 12px;
           font-family: var(--font);
           font-size: 12.5px;
-          line-height: 1.6;
+          line-height: 1.5;
           resize: vertical;
-          overflow-y: auto;
           outline: none;
           transition: border-color 0.18s, box-shadow 0.18s;
         }
@@ -415,50 +472,37 @@ export default function ReviewPanel({
         }
         .feedback-ta.has-error {
           border-color: var(--red);
-          background: rgba(244, 63, 94, 0.04);
+          background: rgba(244, 63, 94, 0.05);
         }
-        .rp-actions {
+        .feedback-ta:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .feedback-actions-row {
           display: flex;
           align-items: center;
-          gap: 12px;
-        }
-        .btn-submit-decision {
-          width: 100%;
-          padding: 13px 20px;
-          border: none;
-          border-radius: var(--radius-md);
-          color: #fff;
-          font-family: var(--font);
-          font-size: 13.5px;
-          font-weight: 700;
-          letter-spacing: 0.3px;
-          cursor: pointer;
-          transition: all 0.2s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
           gap: 10px;
         }
-        .btn-submit-approve {
-          background: linear-gradient(135deg, var(--green), #059669);
-          color: #042f2e;
-        }
-        .btn-submit-approve:hover:not(:disabled) {
-          box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
-          transform: translateY(-1px);
-        }
-        .btn-submit-reject {
-          background: linear-gradient(135deg, var(--red), #be123c);
+        .btn-submit-feedback {
+          background: var(--accent);
           color: #fff;
+          padding: 9px 18px;
+          font-weight: 600;
+          font-size: 12.5px;
         }
-        .btn-submit-reject:hover:not(:disabled) {
-          box-shadow: 0 4px 16px rgba(244, 63, 94, 0.35);
-          transform: translateY(-1px);
+        .btn-submit-feedback:hover:not(:disabled) {
+          box-shadow: 0 4px 14px var(--accent-glow);
         }
-        .btn-submit-decision:disabled {
-          opacity: 0.45;
-          cursor: not-allowed;
-          transform: none;
+        .btn-cancel-feedback {
+          background: transparent;
+          color: var(--ink3);
+          border: 1px solid var(--border);
+          padding: 9px 14px;
+          font-size: 12px;
+        }
+        .btn-cancel-feedback:hover:not(:disabled) {
+          color: var(--ink);
+          border-color: var(--border2);
         }
       `}</style>
     </div>

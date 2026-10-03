@@ -88,6 +88,7 @@ export const HUMAN_REVIEW_META = {
 };
 
 export const LLM_MODELS = {
+  Ollama: ['qwen3.5', 'qwen3.8:27b'],
   Groq: ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'llama-3.1-70b-versatile', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
   OpenAI: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
   Gemini: ['gemini-3.8-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],

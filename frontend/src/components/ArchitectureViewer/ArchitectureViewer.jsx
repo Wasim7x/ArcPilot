@@ -1,4 +1,5 @@
 import React from 'react';
+import { safeText } from '../../utils/formatUtils';
 
 export default function ArchitectureViewer({ designDocuments, technicalDocuments }) {
   if (!designDocuments && !technicalDocuments) {
@@ -10,25 +11,28 @@ export default function ArchitectureViewer({ designDocuments, technicalDocuments
     );
   }
 
-  const funcDoc =
-    (designDocuments && (designDocuments.functional || designDocuments.architecture_overview)) ||
-    'Functional design document pending generation.';
+  const funcDoc = safeText(
+    (designDocuments && (designDocuments.functional || designDocuments.architecture_overview)),
+    'Functional design document pending generation.'
+  );
 
-  const techDoc =
-    technicalDocuments ||
-    (designDocuments && designDocuments.technical) ||
-    'Technical design document pending generation.';
+  const techDoc = safeText(
+    technicalDocuments || (designDocuments && designDocuments.technical),
+    'Technical design document pending generation.'
+  );
 
-  const archOverview =
-    (designDocuments && designDocuments.architecture_overview) ||
-    'Modular Service-Oriented Architecture with FastAPI';
+  const archOverview = safeText(
+    (designDocuments && designDocuments.architecture_overview),
+    'Modular Service-Oriented Architecture with FastAPI'
+  );
 
-  const dbSchema =
-    (designDocuments && designDocuments.database_schema) ||
-    'Relational / SQLite data schema with migration support';
+  const dbSchema = safeText(
+    (designDocuments && designDocuments.database_schema),
+    'Relational / SQLite data schema with migration support'
+  );
 
   return (
-    <div className="architecture-scroll-container" id="architecture-viewer">
+    <div className="architecture-view-container" id="architecture-viewer">
       <div className="design-grid">
         <div className="design-card">
           <div className="design-label">Architecture Style</div>
@@ -61,13 +65,11 @@ export default function ArchitectureViewer({ designDocuments, technicalDocuments
       </div>
 
       <style>{`
-        .architecture-scroll-container {
+        .architecture-view-container {
           display: flex;
           flex-direction: column;
           gap: 16px;
-          overflow-y: auto;
-          max-height: calc(100vh - 280px);
-          padding-right: 6px;
+          width: 100%;
         }
         .design-grid {
           display: grid;
