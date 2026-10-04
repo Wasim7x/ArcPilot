@@ -2,6 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { workflowApi } from '../services/api';
 
 export const getInitialBaseUrl = () => {
+  // 1. Check Vite environment variable VITE_API_URL
+  const envApiUrl = import.meta.env?.VITE_API_URL;
+  if (envApiUrl && typeof envApiUrl === 'string' && envApiUrl.trim()) {
+    return envApiUrl.trim().replace(/\/+$/, '');
+  }
+
+  // 2. Check window location
   if (typeof window !== 'undefined' && window.location) {
     const origin = window.location.origin;
     // When running inside Vite dev server (port 5173), target local backend port 8000
@@ -13,7 +20,9 @@ export const getInitialBaseUrl = () => {
       return origin;
     }
   }
-  return 'http://localhost:8000';
+
+  // 3. Fallback to production Render backend URL
+  return 'https://arcpilot-ke68.onrender.com';
 };
 
 export function useWorkflow(defaultBaseUrl = getInitialBaseUrl()) {
@@ -91,16 +100,29 @@ export function useWorkflow(defaultBaseUrl = getInitialBaseUrl()) {
     }, 2000);
   }, [baseUrl, stopPolling, syncState]);
 
-  // Initial Health Probe
+  // Backend Health Probe
   const probeHealth = useCallback(async () => {
     try {
       const health = await workflowApi.checkHealth(baseUrl);
-      setSystemStatus('healthy');
-      setActiveProvider(health.active_provider || 'Groq');
+      if (health && (health.status === 'ok' || health.status === 'healthy')) {
+        setSystemStatus('healthy');
+        if (health.active_provider) {
+          setActiveProvider(health.active_provider);
+        }
+      } else {
+        setSystemStatus('offline');
+        return;
+      }
 
-      const config = await workflowApi.getLLMConfig(baseUrl);
-      if (config) {
-        setLlmConfig(config);
+      // Separately fetch LLM configuration without impacting backend online status
+      try {
+        const config = await workflowApi.getLLMConfig(baseUrl);
+        if (config && config.provider) {
+          setLlmConfig(config);
+          setActiveProvider(config.provider);
+        }
+      } catch (cfgErr) {
+        console.warn('LLM configuration probe failed:', cfgErr);
       }
     } catch (err) {
       setSystemStatus('offline');

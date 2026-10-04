@@ -18,7 +18,7 @@ export default function Header({ systemStatus, activeProvider, taskId }) {
   };
 
   const getStatusText = () => {
-    if (systemStatus === 'healthy') return `Online · ${activeProvider || 'Auto-configured'}`;
+    if (systemStatus === 'healthy') return 'Backend online';
     if (systemStatus === 'connecting') return 'Connecting to backend…';
     return 'Backend offline';
   };

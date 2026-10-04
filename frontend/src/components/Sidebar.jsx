@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LLM_MODELS } from '../types/workflow';
 import { exportArtifact } from '../utils/export';
 import { workflowApi } from '../services/api';
+import { getInitialBaseUrl } from '../hooks/useWorkflow';
 
 export default function Sidebar({
   baseUrl,
@@ -36,10 +37,8 @@ export default function Sidebar({
   };
 
   const handleApply = () => {
-    const fallbackUrl = typeof window !== 'undefined' && window.location && window.location.origin && !window.location.origin.includes(':5173')
-      ? window.location.origin
-      : 'http://localhost:8000';
-    const effectiveUrl = localUrl.trim().replace(/\/+$/, '') || fallbackUrl;
+    const fallbackUrl = getInitialBaseUrl();
+    const effectiveUrl = (localUrl || '').trim().replace(/\/+$/, '') || fallbackUrl;
     onApplyConfig({
       provider,
       model,
@@ -124,7 +123,7 @@ export default function Sidebar({
               type="text"
               value={localUrl}
               onChange={(e) => setLocalUrl(e.target.value)}
-              placeholder={typeof window !== 'undefined' && window.location && window.location.origin ? window.location.origin : 'http://localhost:8000'}
+              placeholder={getInitialBaseUrl()}
             />
           </div>
 

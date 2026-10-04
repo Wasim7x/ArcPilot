@@ -80,9 +80,23 @@ app.state.llm_config = {
 
 
 # ── CORS Middleware ────────────────────────────────────────────────────────────
+raw_frontend_url = os.getenv("FRONTEND_URL", "")
+cors_origins = [
+    "https://arcpilot-ke68.onrender.com",
+    "http://localhost:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:8000",
+]
+if raw_frontend_url:
+    for url in raw_frontend_url.split(","):
+        clean_url = url.strip().rstrip("/")
+        if clean_url and clean_url not in cors_origins:
+            cors_origins.append(clean_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -153,16 +167,12 @@ def _serialize_state(state_obj) -> dict:
 # ── Health & Diagnostics Endpoints ─────────────────────────────────────────────
 @app.get("/health", tags=["Diagnostics"])
 async def health_check():
-    """System health check probe."""
-    redis_ok = is_redis_available()
-    graph_ready = app.state.graph is not None
+    """Lightweight system health check probe confirming FastAPI backend is alive."""
     return {
-        "status": "healthy",
+        "status": "ok",
         "service": "ArcPilot",
         "version": "2.0.0",
-        "graph_ready": graph_ready,
-        "redis_connected": redis_ok,
-        "active_provider": app.state.llm_config.get("provider", "None")
+        "active_provider": app.state.llm_config.get("provider", "groq"),
     }
 
 @app.get("/ready", tags=["Diagnostics"])
@@ -835,4 +845,6 @@ if (frontend_dist_dir / "assets").is_dir():
 
 # ── Main Entrypoint ────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 8000))
+    reload_flag = os.environ.get("ENVIRONMENT", "").lower() == "development"
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=reload_flag)
