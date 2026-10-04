@@ -1,7 +1,22 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { workflowApi } from '../services/api';
 
-export function useWorkflow(defaultBaseUrl = 'http://localhost:8000') {
+export const getInitialBaseUrl = () => {
+  if (typeof window !== 'undefined' && window.location) {
+    const origin = window.location.origin;
+    // When running inside Vite dev server (port 5173), target local backend port 8000
+    if (origin && origin.includes(':5173')) {
+      return 'http://localhost:8000';
+    }
+    // In production (e.g. deployed on Render or Docker), use current site origin
+    if (origin && origin.startsWith('http')) {
+      return origin;
+    }
+  }
+  return 'http://localhost:8000';
+};
+
+export function useWorkflow(defaultBaseUrl = getInitialBaseUrl()) {
   const [baseUrl, setBaseUrl] = useState(defaultBaseUrl);
   const [systemStatus, setSystemStatus] = useState('connecting'); // 'connecting' | 'healthy' | 'offline'
   const [activeProvider, setActiveProvider] = useState('');

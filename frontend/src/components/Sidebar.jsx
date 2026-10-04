@@ -22,6 +22,10 @@ export default function Sidebar({
     if (llmConfig.model) setModel(llmConfig.model);
   }, [llmConfig]);
 
+  useEffect(() => {
+    if (baseUrl) setLocalUrl(baseUrl);
+  }, [baseUrl]);
+
   const handleProviderChange = (e) => {
     const nextProv = e.target.value;
     setProvider(nextProv);
@@ -32,11 +36,15 @@ export default function Sidebar({
   };
 
   const handleApply = () => {
+    const fallbackUrl = typeof window !== 'undefined' && window.location && window.location.origin && !window.location.origin.includes(':5173')
+      ? window.location.origin
+      : 'http://localhost:8000';
+    const effectiveUrl = localUrl.trim().replace(/\/+$/, '') || fallbackUrl;
     onApplyConfig({
       provider,
       model,
       apiKey: apiKey.trim() || undefined,
-      url: localUrl.trim().replace(/\/+$/, '') || 'http://localhost:8000',
+      url: effectiveUrl,
     });
   };
 
@@ -116,7 +124,7 @@ export default function Sidebar({
               type="text"
               value={localUrl}
               onChange={(e) => setLocalUrl(e.target.value)}
-              placeholder="http://localhost:8000"
+              placeholder={typeof window !== 'undefined' && window.location && window.location.origin ? window.location.origin : 'http://localhost:8000'}
             />
           </div>
 
