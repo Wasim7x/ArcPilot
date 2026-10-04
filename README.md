@@ -8,10 +8,13 @@
 [![Security: Bandit](https://img.shields.io/badge/Security-Bandit%20SAST-yellow.svg)](https://github.com/PyCQA/bandit)
 [![Code Style: Ruff](https://img.shields.io/badge/Code%20Style-Ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Live Demo](https://img.shields.io/badge/Live%20App-Render-46E3B7.svg?style=flat&logo=render&logoColor=white)](https://arcpilot-ke68.onrender.com/)
 
 **ArcPilot** is an enterprise-grade autonomous Software Development Life Cycle (SDLC) orchestration platform. Powered by **LangGraph**, **FastAPI**, and a modular **React + Vite** frontend, ArcPilot transforms natural-language project requirements into complete, validated, tested, security-hardened, and containerized runnable software applications.
 
 The platform coordinates specialized AI engineering agents through a deterministic state machine with cyclic human-in-the-loop (HITL) review gates, real AST-based static code analysis, multi-layered SAST security scanning, isolated test execution, and an automated self-healing repair loop.
+
+> **Live Application**: You can access the application live on Render at: [https://arcpilot-ke68.onrender.com/](https://arcpilot-ke68.onrender.com/)
 
 ---
 
@@ -455,6 +458,12 @@ uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
 Access the integrated production platform at [http://localhost:8000/](http://localhost:8000/).
+
+### Live Cloud Deployment
+
+You can access the hosted application directly without local setup at:
+- **Live Application**: [https://arcpilot-ke68.onrender.com/](https://arcpilot-ke68.onrender.com/)
+- **Interactive API Documentation**: [https://arcpilot-ke68.onrender.com/docs](https://arcpilot-ke68.onrender.com/docs)
 
 ---
 
