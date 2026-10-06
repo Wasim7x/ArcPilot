@@ -1,0 +1,32 @@
+# Git and environments
+.git
+.gitignore
+.venv
+venv
+ENV/
+env/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.ruff_cache/
+
+# Application runtime artifacts
+artifacts/*
+!artifacts/projects
+logs/*
+scratch/
+
+# Frontend source dev dependencies (dist is already built and needed)
+frontend/node_modules/
+frontend/.env*
+
+# Secrets and docs
+.env
+.env.*
+!render.yaml
+crendential.txt
+PROJECT_INTERVIEW_NOTES.*

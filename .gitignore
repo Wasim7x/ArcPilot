@@ -1,10 +1,10 @@
 crendential.txt
 .env
 venv/
+.venv/
 __pycache__/
 logs/
 test_main.py
-logs/
 test.py
 test_endpoints.py
 test_workflow.py
@@ -13,9 +13,7 @@ updated_app/
 command.txt
 artifacts/
 .pytest_cache/
-
-tests/
-.github/
+.ruff_cache/
 scratch/
 PROJECT_INTERVIEW_NOTES.ipynb
 PROJECT_INTERVIEW_NOTES.md

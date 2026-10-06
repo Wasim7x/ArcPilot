@@ -537,47 +537,53 @@ For long-running VM or bare-metal deployments on Linux distributions:
 
 ---
 
-## Production Persistence
+## Production Persistence (Free Render Web Service)
 
-ArcPilot uses Redis/database-backed workflow persistence for recoverable workflow state and persistent storage for generated artifacts.
+ArcPilot is engineered to run reliably on a **Free Render Web Service**, where the container filesystem is ephemeral and wiped upon every restart or spin-down. **No Render Persistent Disk is required (`Persistent Disk required: NO`)**.
 
-For Render deployment, configure the required environment variables and persistent storage according to the deployment configuration.
-
-### Deployment Configuration
-
-- **Environment Variables**:
-  - `REDIS_URL`: (Optional) Connection URI to managed Redis instance (e.g. `rediss://...` or `redis://redis:6379/0`). Set `ENABLE_REDIS=true` when configured.
-  - `ARCPILOT_DATA_DIR`: Centralized persistent directory mount path (e.g. `/var/data` on Render).
-  - `ARTIFACTS_DIR`: (Fallback) Custom directory for generated workspaces (defaults to `${ARCPILOT_DATA_DIR}/artifacts`).
-
-- **Render Persistent Disk**:
-  - **Mount Path**: `/var/data`
-  - **Size**: 1 GB – 10 GB (depending on expected workspace exports)
-
-### Directory Structure
+### Architectural Separation
 
 ```text
-${ARCPILOT_DATA_DIR}/
-├── workflows/        # Durable workflow state snapshots and .state_cache.json
-├── checkpoints/      # LangGraph checkpointer SQLite database (checkpoints.db)
-├── artifacts/        # Generated project code, schemas, and test suites
-│   └── projects/     # Per-workflow isolated projects ({task_id}/ and {task_id}.zip)
-└── logs/             # Execution and diagnostics logs
+Local Development:
+  SQLite + Local Filesystem + Optional Local Redis
+  Runs 100% offline with zero external dependencies.
+
+Production (Free Render):
+  External Redis (Upstash, Redis Cloud) ──────────> Workflow checkpoints
+                                        ──────────> HITL interrupt states
+                                        ──────────> Channel values / blobs
+                                        ──────────> Pending writes
+  External ArtifactStorage (Redis)     ──────────> Generated source files
+                                        ──────────> Packaged project ZIP archives
 ```
+
+### Free Render Deployment Configuration
+
+Configure these environment variables in your Render Dashboard:
+
+| Variable | Recommended Value | Purpose |
+|---|---|---|
+| `ENVIRONMENT` | `production` | Enforces production persistence rules; disables silent disk fallbacks |
+| `ENABLE_REDIS` | `true` | Enables primary durable Redis checkpointing & artifact persistence |
+| `REDIS_URL` | `rediss://default:xxx@xxx.upstash.io:6379` | External durable Redis connection URI |
+| `LLM_PROVIDER` | `groq` | Default cloud LLM provider |
+| `GROQ_API_KEY` | `<your-groq-api-key>` | Provider API key |
+| `PORT` | `8000` | Port assigned by Render |
+
+> **Render Persistent Disk**: **NOT REQUIRED**. Render Free Web Service local disks are ephemeral. All critical workflow states, HITL reviews, generated projects, and downloadable ZIP archives are durably stored in External Redis and survive container wipes.
 
 ### Durability Matrix
 
 **What survives instance restart or redeployment:**
-- Workflow checkpoints and LangGraph execution history
-- Human-in-the-Loop (HITL) review gate states
-- Generated project source code, tests, and configuration files
-- Packaged `.zip` deployment archives
-- Completed requirements, user stories, and architecture design documents
+- Complete LangGraph checkpoints and execution state
+- Human-in-the-Loop (HITL) review gate states (approvals, revisions, feedback)
+- Generated multi-file project source code and tests (via `ArtifactStorage`)
+- Packaged `.zip` deployment archives (via `ArtifactStorage`)
+- Requirements, user stories, and architecture documents
 
-**What does not need to survive:**
-- Temporary runtime objects and ephemeral in-flight task locks
-- In-memory hot caches
-- Transient HTTP request/response buffers
+**What is ephemeral / temporary:**
+- In-memory hot caches and active processing locks
+- Temporary test execution scratch spaces on disk
 
 ---
 
@@ -599,9 +605,17 @@ GET /health
   "status": "healthy",
   "service": "ArcPilot",
   "version": "2.0.0",
-  "graph_ready": true,
-  "redis_connected": false,
-  "active_provider": "ollama"
+  "active_provider": "groq",
+  "persistence": {
+    "storage_dir": "/app/artifacts",
+    "environment": "production",
+    "checkpoint_store": "redis",
+    "checkpoint_ready": true,
+    "artifact_store": "redis+local",
+    "artifact_store_ready": true,
+    "redis_connected": true,
+    "persistent_disk_required": false
+  }
 }
 ```
 

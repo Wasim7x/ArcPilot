@@ -99,6 +99,12 @@ _redis_client: redis.Redis | None = None
 _last_redis_check_time: float = 0.0
 _redis_check_cooldown: float = 5.0  # seconds between reconnect attempts
 
+def set_redis_client(client: redis.Redis | None) -> None:
+    """Explicitly set or reset the Redis client instance (e.g. for testing)."""
+    global _redis_client, _last_redis_check_time
+    _redis_client = client
+    _last_redis_check_time = 0.0
+
 def get_redis_client() -> redis.Redis | None:
     """
     Lazy / resilient Redis connection manager.
@@ -107,10 +113,6 @@ def get_redis_client() -> redis.Redis | None:
     """
     global _redis_client, _last_redis_check_time
 
-    if not is_redis_enabled():
-        return None
-
-    now = time.time()
     if _redis_client is not None:
         try:
             _redis_client.ping()
@@ -118,8 +120,12 @@ def get_redis_client() -> redis.Redis | None:
         except Exception:
             logger.warning("Redis connection lost. Will attempt reconnect.")
             _redis_client = None
-            _last_redis_check_time = now
+            _last_redis_check_time = time.time()
 
+    if not is_redis_enabled():
+        return None
+
+    now = time.time()
     # Throttle reconnect attempts to prevent repeated request latency
     if now - _last_redis_check_time < _redis_check_cooldown:
         return None
@@ -173,7 +179,8 @@ def save_state_to_redis(task_id: str, state: Any, expire_seconds: int = 86400):
     """
     Save workflow state to isolated key.
     Handles LangGraph state snapshots, tuples, dicts, and Pydantic models.
-    Persists to Redis when available, and always mirrors to the persistent in-memory store.
+    Persists to Redis when available, and mirrors to persistent in-memory store in development.
+    In production, raises an error if Redis is unavailable.
     """
     key = _get_redis_key(task_id)
 
@@ -195,6 +202,7 @@ def save_state_to_redis(task_id: str, state: Any, expire_seconds: int = 86400):
         logger.warning(f"CustomEncoder failed on state: {e}. Falling back to default=str.")
         state_json = json.dumps(raw_state, default=str)
 
+    prod = os.getenv("ENVIRONMENT", "development").strip().lower() in ("production", "prod")
     client = get_redis_client()
     if client:
         try:
@@ -205,7 +213,15 @@ def save_state_to_redis(task_id: str, state: Any, expire_seconds: int = 86400):
             logger.info(f"Workflow checkpoint saved to Redis: {task_id}")
             return
         except Exception as e:
+            if prod:
+                raise RuntimeError(f"CRITICAL PRODUCTION ERROR: Failed to persist state to Redis ({e})") from e
             logger.warning(f"Failed to persist state to Redis: {e}. Saving to in-memory fallback.")
+
+    if prod:
+        raise RuntimeError(
+            "CRITICAL PRODUCTION ERROR: Cannot save workflow state because external Redis is unavailable. "
+            "Ephemeral Render infrastructure requires persistent Redis."
+        )
 
     _memory_store.set(key, state_json, expire_seconds)
     logger.info(f"Workflow checkpoint saved to disk store: {task_id}")
@@ -215,6 +231,7 @@ def get_state_from_redis(task_id: str) -> dict | None:
     Retrieve workflow state for task_id as a plain dict.
     Returns None if task does not exist.
     """
+    prod = os.getenv("ENVIRONMENT", "development").strip().lower() in ("production", "prod")
     key = _get_redis_key(task_id)
     state_json = None
 
@@ -225,9 +242,15 @@ def get_state_from_redis(task_id: str) -> dict | None:
             if state_json:
                 logger.debug(f"Workflow checkpoint restored from Redis: {task_id}")
         except Exception as e:
+            if prod:
+                raise RuntimeError(f"CRITICAL PRODUCTION ERROR: Failed to read state from Redis ({e})") from e
             logger.warning(f"Failed to read state from Redis: {e}. Checking in-memory fallback.")
+    elif prod:
+        raise RuntimeError("CRITICAL PRODUCTION ERROR: Cannot read workflow state because external Redis is unavailable.")
 
     if not state_json:
+        if prod:
+            return None
         state_json = _memory_store.get(key)
         if state_json:
             logger.debug(f"Workflow checkpoint restored from disk store: {task_id}")

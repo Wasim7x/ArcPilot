@@ -1,0 +1,41 @@
+# Render Blueprint Specification for ArcPilot
+# Deploys as a Free Web Service without requiring paid Render Persistent Disk.
+# All workflow checkpoints, HITL states, and generated project artifacts
+# are durably persisted in External Redis (e.g., Upstash, Redis Cloud).
+
+services:
+  - type: web
+    name: arcpilot
+    runtime: docker
+    plan: free
+    dockerfilePath: Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: ENABLE_REDIS
+        value: "true"
+      - key: REDIS_URL
+        sync: false  # Provide your external Redis URL (e.g. rediss://default:xxx@xxx.upstash.io:6379)
+      - key: PORT
+        value: "8000"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: LLM_PROVIDER
+        value: groq
+      - key: LLM_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MAX_REPAIR_ATTEMPTS
+        value: "3"
+      - key: TEST_TIMEOUT
+        value: "45"
+      - key: CODE_EXECUTION_TIMEOUT
+        value: "60"

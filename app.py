@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from src.cache.radis_cache import (
@@ -32,8 +32,11 @@ from src.tools.project_manager import ProjectManagerTool
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Initializing ArcPilot server startup via lifespan...")
-    from src.storage import get_storage_root, init_storage
+    from src.storage import get_storage_root, init_storage, validate_persistence_config
     init_storage()
+    # Validate production persistence rules
+    persistence_info = validate_persistence_config()
+    logger.info(f"Persistence configuration verified: {persistence_info}")
     if is_redis_available():
         logger.info("Redis connection established.")
     else:
@@ -173,22 +176,37 @@ def _serialize_state(state_obj) -> dict:
 # ── Health & Diagnostics Endpoints ─────────────────────────────────────────────
 @app.get("/health", tags=["Diagnostics"])
 async def health_check():
-    """Lightweight system health check probe confirming FastAPI backend is alive."""
-    from src.storage import get_storage_root
+    """System health check probe reporting persistence readiness and service status."""
+    from src.storage import get_artifact_storage, get_storage_root, is_production
+    storage = get_artifact_storage()
+    redis_ok = is_redis_available()
+    prod = is_production()
     return {
-        "status": "ok",
+        "status": "healthy" if (redis_ok or not prod) else "degraded",
         "service": "ArcPilot",
         "version": "2.0.0",
         "active_provider": app.state.llm_config.get("provider", "groq"),
         "persistence": {
             "storage_dir": str(get_storage_root()),
-            "redis_connected": is_redis_available(),
+            "environment": "production" if prod else "development",
+            "checkpoint_store": "redis" if redis_ok else ("sqlite" if not prod else "error"),
+            "checkpoint_ready": redis_ok or not prod,
+            "artifact_store": storage.provider_name,
+            "artifact_store_ready": storage.is_ready(),
+            "redis_connected": redis_ok,
+            "persistent_disk_required": False,
         },
     }
 
 @app.get("/ready", tags=["Diagnostics"])
 async def readiness_check():
     """Readiness probe."""
+    from src.storage import is_production
+    if is_production() and not is_redis_available():
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "not_ready", "reason": "Production Redis persistence unavailable."}
+        )
     active_prov = (app.state.llm_config.get("provider") or os.getenv("LLM_PROVIDER", "")).strip().lower()
     is_ollama = active_prov in ("ollama", "chatollama")
     has_key = bool(os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("GEMINI_API_KEY"))
@@ -424,38 +442,35 @@ async def get_workflow_state(task_id: str):
 @app.get("/sdlc/workflow/{task_id}/download", tags=["Artifacts"])
 async def download_project_zip(task_id: str):
     """Download the complete generated application package as a .zip file."""
+    # 1. Try to serve bytes from external/composite ArtifactStorage (survives container wipe)
+    zip_bytes = ProjectManagerTool.get_project_zip_bytes(task_id)
+    if zip_bytes:
+        return Response(
+            content=zip_bytes,
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{task_id}.zip"'},
+        )
+
+    # 2. Check local disk fallback
     saved = get_state_from_redis(task_id) or {}
     deploy_result = saved.get("deployment_result") or {}
     zip_path = deploy_result.get("artifacts_path")
     if not zip_path or not os.path.isfile(zip_path):
         zip_path = ProjectManagerTool.package_project_zip(task_id)
-    if not os.path.isfile(zip_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Archive for task '{task_id}' could not be located."
+    if os.path.isfile(zip_path):
+        return FileResponse(
+            path=zip_path,
+            filename=f"{task_id}.zip",
+            media_type="application/zip"
         )
-    return FileResponse(
-        path=zip_path,
-        filename=f"{task_id}.zip",
-        media_type="application/zip"
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Archive for task '{task_id}' could not be located."
     )
 
 @app.get("/sdlc/workflow/{task_id}/artifacts", tags=["Artifacts"])
 async def list_project_artifacts(task_id: str):
     """List all generated files and paths in the project workspace."""
-    saved = get_state_from_redis(task_id) or {}
-    project_dir = saved.get("generated_project_path")
-    if project_dir and os.path.isdir(project_dir):
-        files = {}
-        for p in Path(project_dir).rglob("*"):
-            if p.is_file() and not p.name.endswith(".zip") and ".git" not in str(p) and "__pycache__" not in str(p):
-                rel_path = str(p.relative_to(project_dir)).replace("\\", "/")
-                files[rel_path] = True
-        return {
-            "task_id": task_id,
-            "total_files": len(files),
-            "files": list(files.keys())
-        }
     files = ProjectManagerTool.read_all_project_files(task_id)
     return {
         "task_id": task_id,
