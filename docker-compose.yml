@@ -19,6 +19,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - LLM_PROVIDER=${LLM_PROVIDER:-groq}
       - LLM_MODEL=${LLM_MODEL:-llama-3.3-70b-versatile}
+      - ARCPILOT_DATA_DIR=/app/artifacts
       - MAX_REPAIR_ATTEMPTS=3
       - TEST_TIMEOUT=45
     volumes:

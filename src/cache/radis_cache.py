@@ -1,12 +1,12 @@
 import json
 import os
-from pathlib import Path
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
 import redis
+from dotenv import load_dotenv
 
 from src.logger import logger
 from src.state.sdlc_state import CustomEncoder
@@ -23,8 +23,8 @@ class InMemoryStateStore:
         self._store: dict[str, str] = {}
         self._lock = threading.Lock()
         if cache_file is None:
-            artifacts_dir = os.getenv("ARTIFACTS_DIR", "artifacts")
-            self._cache_file = Path(artifacts_dir) / ".state_cache.json"
+            from src.storage import get_state_cache_file
+            self._cache_file = get_state_cache_file()
         else:
             self._cache_file = Path(cache_file)
         self._load_from_disk()
@@ -38,6 +38,17 @@ class InMemoryStateStore:
                     if isinstance(data, dict):
                         self._store.update(data)
                         logger.info(f"Loaded {len(data)} workflow checkpoints from persistent disk cache ({self._cache_file}).")
+            else:
+                from src.storage import get_storage_root
+                legacy_file = get_storage_root() / ".state_cache.json"
+                if legacy_file.is_file() and legacy_file != self._cache_file:
+                    content = legacy_file.read_text(encoding="utf-8")
+                    if content.strip():
+                        data = json.loads(content)
+                        if isinstance(data, dict):
+                            self._store.update(data)
+                            logger.info(f"Loaded {len(data)} workflow checkpoints from legacy disk cache ({legacy_file}).")
+                            self._save_to_disk()
         except Exception as e:
             logger.warning(f"Could not load state cache from disk ({self._cache_file}): {e}")
 
@@ -191,11 +202,13 @@ def save_state_to_redis(task_id: str, state: Any, expire_seconds: int = 86400):
             client.expire(key, expire_seconds)
             # Also keep in-memory fallback updated as safe buffer
             _memory_store.set(key, state_json, expire_seconds)
+            logger.info(f"Workflow checkpoint saved to Redis: {task_id}")
             return
         except Exception as e:
             logger.warning(f"Failed to persist state to Redis: {e}. Saving to in-memory fallback.")
 
     _memory_store.set(key, state_json, expire_seconds)
+    logger.info(f"Workflow checkpoint saved to disk store: {task_id}")
 
 def get_state_from_redis(task_id: str) -> dict | None:
     """
@@ -209,11 +222,15 @@ def get_state_from_redis(task_id: str) -> dict | None:
     if client:
         try:
             state_json = client.get(key)
+            if state_json:
+                logger.debug(f"Workflow checkpoint restored from Redis: {task_id}")
         except Exception as e:
             logger.warning(f"Failed to read state from Redis: {e}. Checking in-memory fallback.")
 
     if not state_json:
         state_json = _memory_store.get(key)
+        if state_json:
+            logger.debug(f"Workflow checkpoint restored from disk store: {task_id}")
 
     if not state_json:
         return None

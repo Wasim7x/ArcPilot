@@ -3,8 +3,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
 import httpx
+from dotenv import load_dotenv
 from langchain_ollama import ChatOllama
 
 from src.exception import ArcPilotException
@@ -139,7 +139,7 @@ class OllamaProvider(LLMProvider):
                         "status": "model_not_installed",
                         "error": f"Model '{self.model_name}' is not installed in Ollama. Please run 'ollama pull {self.model_name}'."
                     }
-        except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+        except (httpx.ConnectError, httpx.ConnectTimeout):
             return {
                 "provider": self.__class__.__name__,
                 "model": self.model_name,

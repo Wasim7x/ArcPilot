@@ -3,7 +3,6 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
-
 from langchain_groq import ChatGroq
 
 from src.exception import ArcPilotException

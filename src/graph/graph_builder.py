@@ -1,16 +1,19 @@
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
+from src.cache.checkpointer import get_durable_checkpointer
 from src.node.sdlc_node import SDLCNode
 from src.node.worker import CodeNode, DesignNode, SecurityNode, deployment, qa_testing, tester
 from src.state.sdlc_state import SDLCState
 
 
 class GraphBuilder:
-    def __init__(self, llm):
+    def __init__(self, llm, checkpointer=None):
         self.llm = llm
         self.builder = StateGraph(SDLCState)
-        self.memory = MemorySaver()
+        if checkpointer is not None:
+            self.memory = checkpointer
+        else:
+            self.memory = get_durable_checkpointer()
 
     def build_graph(self):
         """

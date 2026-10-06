@@ -32,6 +32,12 @@ from src.tools.project_manager import ProjectManagerTool
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Initializing ArcPilot server startup via lifespan...")
+    from src.storage import get_storage_root, init_storage
+    init_storage()
+    if is_redis_available():
+        logger.info("Redis connection established.")
+    else:
+        logger.info(f"Redis unavailable or disabled. Using durable local persistence at: {get_storage_root()}")
     app.state.executor = ThreadPoolExecutor(max_workers=8)
     default_provider = os.getenv("LLM_PROVIDER", "groq")
     default_model = os.getenv("LLM_MODEL")
@@ -125,8 +131,8 @@ def _build_llm(provider: str, model: str | None = None, api_key: str | None = No
     prov = get_llm_provider(provider_name=provider, api_key=api_key, model_name=model)
     return prov.get_llm()
 
-def _rebuild_graph(llm):
-    return GraphBuilder(llm=llm).setup_graph()
+def _rebuild_graph(llm, checkpointer=None):
+    return GraphBuilder(llm=llm, checkpointer=checkpointer).setup_graph()
 
 def _check_graph():
     if getattr(app.state, "graph", None) is None:
@@ -168,11 +174,16 @@ def _serialize_state(state_obj) -> dict:
 @app.get("/health", tags=["Diagnostics"])
 async def health_check():
     """Lightweight system health check probe confirming FastAPI backend is alive."""
+    from src.storage import get_storage_root
     return {
         "status": "ok",
         "service": "ArcPilot",
         "version": "2.0.0",
         "active_provider": app.state.llm_config.get("provider", "groq"),
+        "persistence": {
+            "storage_dir": str(get_storage_root()),
+            "redis_connected": is_redis_available(),
+        },
     }
 
 @app.get("/ready", tags=["Diagnostics"])

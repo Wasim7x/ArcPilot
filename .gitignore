@@ -16,3 +16,6 @@ artifacts/
 
 tests/
 .github/
+scratch/
+PROJECT_INTERVIEW_NOTES.ipynb
+PROJECT_INTERVIEW_NOTES.md

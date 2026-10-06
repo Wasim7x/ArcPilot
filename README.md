@@ -537,6 +537,50 @@ For long-running VM or bare-metal deployments on Linux distributions:
 
 ---
 
+## Production Persistence
+
+ArcPilot uses Redis/database-backed workflow persistence for recoverable workflow state and persistent storage for generated artifacts.
+
+For Render deployment, configure the required environment variables and persistent storage according to the deployment configuration.
+
+### Deployment Configuration
+
+- **Environment Variables**:
+  - `REDIS_URL`: (Optional) Connection URI to managed Redis instance (e.g. `rediss://...` or `redis://redis:6379/0`). Set `ENABLE_REDIS=true` when configured.
+  - `ARCPILOT_DATA_DIR`: Centralized persistent directory mount path (e.g. `/var/data` on Render).
+  - `ARTIFACTS_DIR`: (Fallback) Custom directory for generated workspaces (defaults to `${ARCPILOT_DATA_DIR}/artifacts`).
+
+- **Render Persistent Disk**:
+  - **Mount Path**: `/var/data`
+  - **Size**: 1 GB – 10 GB (depending on expected workspace exports)
+
+### Directory Structure
+
+```text
+${ARCPILOT_DATA_DIR}/
+├── workflows/        # Durable workflow state snapshots and .state_cache.json
+├── checkpoints/      # LangGraph checkpointer SQLite database (checkpoints.db)
+├── artifacts/        # Generated project code, schemas, and test suites
+│   └── projects/     # Per-workflow isolated projects ({task_id}/ and {task_id}.zip)
+└── logs/             # Execution and diagnostics logs
+```
+
+### Durability Matrix
+
+**What survives instance restart or redeployment:**
+- Workflow checkpoints and LangGraph execution history
+- Human-in-the-Loop (HITL) review gate states
+- Generated project source code, tests, and configuration files
+- Packaged `.zip` deployment archives
+- Completed requirements, user stories, and architecture design documents
+
+**What does not need to survive:**
+- Temporary runtime objects and ephemeral in-flight task locks
+- In-memory hot caches
+- Transient HTTP request/response buffers
+
+---
+
 ## API Reference
 
 Interactive API documentation and schema models are available at:

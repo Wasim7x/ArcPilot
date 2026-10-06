@@ -13,13 +13,8 @@ class ProjectManagerTool:
 
     @classmethod
     def get_base_artifacts_dir(cls) -> Path:
-        base = os.getenv("ARTIFACTS_DIR", "")
-        if base:
-            p = Path(base)
-        else:
-            p = Path(__file__).resolve().parent.parent.parent / "artifacts"
-        p.mkdir(parents=True, exist_ok=True)
-        return p
+        from src.storage import get_artifacts_dir
+        return get_artifacts_dir()
 
     @classmethod
     def get_project_dir(cls, task_id: str) -> Path:
@@ -43,7 +38,7 @@ class ProjectManagerTool:
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(content)
 
-        logger.info(f"Wrote {len(files)} files to project directory: {project_dir}")
+        logger.info(f"Artifact persisted: Wrote {len(files)} files to project directory {project_dir}")
         return str(project_dir)
 
     @classmethod
@@ -55,6 +50,7 @@ class ProjectManagerTool:
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(new_content)
+        logger.info(f"Artifact persisted: updated file '{rel_path}' for task {task_id}")
         return True
 
     @classmethod
@@ -95,5 +91,5 @@ class ProjectManagerTool:
                     arcname = os.path.relpath(file_path, project_dir)
                     zipf.write(file_path, arcname)
 
-        logger.info(f"Packaged project archive at {zip_path}")
+        logger.info(f"Artifact persisted: Packaged project archive at {zip_path}")
         return str(zip_path)
